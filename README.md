@@ -9,6 +9,8 @@ A modern web application that helps investors maintain their target asset alloca
 - Visualize current vs. target allocations
 - Get rebalancing recommendations
 - Historical performance tracking
+- Import portfolio data from Excel templates
+- Export portfolio data to Excel templates
 
 ## Technologies
 
@@ -46,6 +48,15 @@ A modern web application that helps investors maintain their target asset alloca
    ```
 
    Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
+
+## Portfolio Import/Export
+
+The application allows you to import and export your portfolio data using Excel templates:
+
+1. Click the "Download Template" button to get the Excel template
+2. Fill in your portfolio data in the template
+3. Save the template and upload it back to the application
+4. Your portfolio will be updated with the imported data
 
 ## Available Scripts
 

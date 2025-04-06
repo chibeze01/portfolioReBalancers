@@ -8,8 +8,9 @@ import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 import PortfolioView from "./components/portfolio/PortfolioView";
 import AddStockForm from "./components/portfolio/AddStockForm";
+import PortfolioImportExport from "./components/portfolio/PortfolioImportExport";
 import Recommendations from "./components/recommendations/Recommendations";
-import type { Recommendation, NewStockState } from "./types/types";
+import type { Recommendation, NewStockState, StockData } from "./types/types";
 import "./App.css"; // Import your CSS styles
 
 function App() {
@@ -96,6 +97,39 @@ function App() {
   const handleRemoveStock = useCallback(
     async (id: number) => {
       await db.remove(id);
+    },
+    [db]
+  );
+
+  // Handle importing data from CSV file
+  const handleImportPortfolio = useCallback(
+    (importedStocks: StockData[]) => {
+      // First, check if we should replace or append to the existing portfolio
+      if (db.data.length > 0) {
+        const shouldReplace = window.confirm(
+          "Would you like to replace your existing portfolio with the imported data? Click 'OK' to replace, or 'Cancel' to add to your current portfolio."
+        );
+
+        if (shouldReplace) {
+          // Remove existing stocks first
+          Promise.all(db.data.map((stock) => db.remove(stock.id))).then(() => {
+            // Then add new ones
+            importedStocks.forEach((stock) => {
+              db.insert(stock);
+            });
+          });
+        } else {
+          // Just add the new stocks
+          importedStocks.forEach((stock) => {
+            db.insert(stock);
+          });
+        }
+      } else {
+        // No existing portfolio, just add the imported stocks
+        importedStocks.forEach((stock) => {
+          db.insert(stock);
+        });
+      }
     },
     [db]
   );
@@ -204,6 +238,12 @@ function App() {
           stocks={db.data}
           totalValue={totalValue}
           onRemoveStock={handleRemoveStock}
+        />
+
+        {/* Import/Export Component */}
+        <PortfolioImportExport
+          stocks={db.data}
+          onImportData={handleImportPortfolio}
         />
 
         {/* Action Forms / Recommendations Grid */}
