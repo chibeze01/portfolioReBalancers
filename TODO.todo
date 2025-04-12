@@ -1,0 +1,34 @@
+Supabase Authentication:
+✓ Set up Supabase client configuration
+✓ Implement sign-up functionality
+✓ Implement sign-in functionality
+✓ Add sign-out feature
+✓ Create protected routes
+✓ Add user session management
+
+Template/Import Fixes:
+☐ Review and organize import statements
+☐ Fix template import paths
+☐ Create centralized template directory
+☐ Implement proper template inheritance
+
+CSS Drop Zone Improvements:
+☐ Style drop zone container
+☐ Add hover effects
+☐ Implement responsive design
+☐ Add visual feedback for drag and drop
+☐ Fix alignment issues
+
+Yahoo Finance Integration:
+☐ Set up Yahoo Finance API client
+☐ Implement stock data fetching
+☐ Create recommendation algorithm
+☐ Add error handling for API calls
+☐ Cache API responses
+☐ Display recommendations in UI
+
+Testing:
+☐ Unit tests for authentication
+☐ Integration tests for Yahoo Finance API
+☐ UI tests for drop zone
+☐ End-to-end testing
