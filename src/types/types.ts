@@ -23,7 +23,7 @@ export interface Recommendation {
 
 // Type for the user object in the session
 export interface User {
-  id: string;
+  id: string | undefined;
   email: string;
   name?: string; // Optional based on mock
 }
