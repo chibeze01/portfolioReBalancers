@@ -15,48 +15,70 @@ const PortfolioTable: React.FC<PortfolioTableProps> = ({
   onRemoveStock,
 }) => {
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full">
-        <thead>
-          <tr className="border-b border-gray-200">
-            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-              Ticker
-            </th>
-            <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-              Name
-            </th>
-            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-              Shares
-            </th>
-            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-              Price
-            </th>
-            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-              Value
-            </th>
-            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-              Target %
-            </th>
-            <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-              Current %
-            </th>
-            <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600 uppercase tracking-wider">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {stocks.map((stock) => (
-            <StockRow
-              key={stock.id}
-              stock={stock}
-              totalPortfolioValue={totalValue}
-              onRemove={onRemoveStock}
-            />
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <table className="min-w-full divide-y divide-gray-200">
+      <thead className="bg-gray-50">
+        <tr>
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Ticker
+          </th>
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Name
+          </th>
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Shares
+          </th>
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Price
+          </th>
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Value
+          </th>
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Target %
+          </th>
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Current %
+          </th>
+          <th
+            scope="col"
+            className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+          >
+            Actions
+          </th>
+        </tr>
+      </thead>
+      <tbody className="bg-white divide-y divide-gray-200">
+        {stocks.map((stock) => (
+          <StockRow
+            key={stock.id}
+            stock={stock}
+            totalPortfolioValue={totalValue}
+            onRemove={onRemoveStock}
+          />
+        ))}
+      </tbody>
+    </table>
   );
 };
 

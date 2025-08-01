@@ -1,123 +1,93 @@
 // src/components/portfolio/PortfolioView.tsx
-import React, { useState, useMemo } from "react";
-import { BarChart3, PieChart, Search } from "lucide-react";
+import React, { useMemo } from "react";
+import { BarChart3, Plus } from "lucide-react";
 import PortfolioTable from "./PortfolioTable";
-import PortfolioChartPlaceholder from "./PortfolioChartPlaceholder"; // Use the placeholder
 import type { StockData } from "../../types/types";
-
-type ViewMode = "table" | "chart";
 
 interface PortfolioViewProps {
   stocks: StockData[];
   totalValue: number;
   onRemoveStock: (id: number) => void;
+  onAddStockClick: () => void; // New prop to handle Add New Stock button click
+  onRebalance: () => void; // New prop to handle Rebalance Portfolio button click
 }
 
 const PortfolioView: React.FC<PortfolioViewProps> = ({
   stocks,
   totalValue,
   onRemoveStock,
+  onAddStockClick,
+  onRebalance,
 }) => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [view, setView] = useState<ViewMode>("table");
-
-  const filteredStocks = useMemo(() => {
-    if (!searchQuery) {
-      return stocks;
-    }
-    const lowerCaseQuery = searchQuery.toLowerCase();
-    return stocks.filter(
-      (stock) =>
-        stock.ticker.toLowerCase().includes(lowerCaseQuery) ||
-        stock.name.toLowerCase().includes(lowerCaseQuery)
-    );
-  }, [stocks, searchQuery]);
+  // Calculate portfolio change
+  const portfolioChange = useMemo(() => {
+    // For demo purposes, let's use a static value like in the image: +15.2%
+    return 15.2;
+  }, []);
 
   return (
-    <>
-      {/* Search and View Toggle */}
-      <div className="flex items-center mb-6 space-x-4">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            placeholder="Search your portfolio..."
-            className="w-full p-3 pl-10 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            value={searchQuery}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setSearchQuery(e.target.value)
-            }
-          />
-          <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-        </div>
-
-        <div className="flex space-x-2">
-          <button
-            title="Table View"
-            aria-label="Switch to table view"
-            className={`p-2 rounded-lg ${
-              view === "table"
-                ? "bg-blue-500 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-            onClick={() => setView("table")}
-          >
-            <BarChart3 size={20} />
-          </button>
-          <button
-            title="Chart View"
-            aria-label="Switch to chart view"
-            className={`p-2 rounded-lg ${
-              view === "chart"
-                ? "bg-blue-500 text-white"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-            onClick={() => setView("chart")}
-          >
-            <PieChart size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* Portfolio Display Area */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Current Portfolio</h2>
+    <div className="bg-white rounded-lg shadow overflow-hidden mb-8">
+      <div className="p-6">
+        <div className="flex justify-between items-start">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Current Portfolio
+            </h2>
+            <p className="text-sm text-gray-500">Last updated: Today</p>
+          </div>
           <div className="text-right">
-            <p className="text-lg font-bold">
+            <p className="text-3xl font-bold text-gray-900">
               $
               {totalValue.toLocaleString("en-US", {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}
             </p>
-            <p className="text-sm text-gray-600">Total Value</p>
+            <p className="text-sm text-gray-500">Total Value</p>
           </div>
         </div>
 
+        <div className="mt-4 flex items-center justify-between">
+          <div>
+            <span className="text-sm font-medium text-gray-500 mr-2">
+              Change (YTD):
+            </span>
+            <span className="text-sm font-semibold text-green-600">
+              +{portfolioChange}%
+            </span>
+          </div>
+          <button
+            onClick={onAddStockClick}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            aria-label="Add New Stock"
+          >
+            <Plus size={18} className="mr-2 -ml-1" /> Add New Stock
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
         {stocks.length === 0 ? (
           <div className="text-center py-12">
             <div className="mx-auto h-12 w-12 text-gray-400">
-              <BarChart3 size={48} /> {/* Or another appropriate icon */}
+              <BarChart3 size={48} />
             </div>
             <h3 className="mt-2 text-sm font-medium text-gray-900">
               No stocks yet
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              Get started by adding a stock below.
+              Get started by adding a stock using the button above.
             </p>
           </div>
-        ) : view === "table" ? (
+        ) : (
           <PortfolioTable
-            stocks={filteredStocks}
+            stocks={stocks}
             totalValue={totalValue}
             onRemoveStock={onRemoveStock}
           />
-        ) : (
-          <PortfolioChartPlaceholder /> // Use the placeholder component
-          // Later, replace with: <PortfolioChart stocks={filteredStocks} />
         )}
       </div>
-    </>
+    </div>
   );
 };
 

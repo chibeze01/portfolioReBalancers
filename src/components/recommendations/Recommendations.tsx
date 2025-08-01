@@ -1,6 +1,6 @@
 // src/components/recommendations/Recommendations.tsx
 import React from "react";
-import { RefreshCw, Search } from "lucide-react";
+import { Search, RefreshCw } from "lucide-react";
 import RecommendationItem from "./RecommendationItem";
 import type { Recommendation } from "../../types/types";
 
@@ -19,56 +19,66 @@ const Recommendations: React.FC<RecommendationsProps> = ({
   onAddRecommendationClick,
   hasStocks,
 }) => {
-  const showPlaceholder =
-    !hasStocks || (hasStocks && recommendations.length === 0 && !isRebalancing);
   const placeholderText = !hasStocks
     ? "Add stocks to your portfolio to get AI-powered recommendations"
-    : 'Click "Rebalance Portfolio" to get AI-powered recommendations based on your current holdings';
+    : "Analyzing your portfolio to generate recommendations...";
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-        <h2 className="text-xl font-semibold">AI Recommendations</h2>
-        <button
-          className={`bg-indigo-500 hover:bg-indigo-600 text-white py-2 px-4 rounded-md flex items-center justify-center transition duration-150 ease-in-out ${
-            isRebalancing || !hasStocks ? "opacity-50 cursor-not-allowed" : ""
-          }`}
-          onClick={onRebalance}
-          disabled={isRebalancing || !hasStocks}
-        >
-          {isRebalancing ? (
-            <>
-              <RefreshCw size={18} className="mr-2 animate-spin" /> Analyzing...
-            </>
-          ) : (
-            <>
-              <RefreshCw size={18} className="mr-2" /> Rebalance Portfolio
-            </>
+    <div className="bg-white rounded-lg shadow h-full">
+      <div className="p-6">
+        <div className="flex justify-between items-start mb-3">
+          <div>
+            <h3 className="text-lg font-semibold leading-6 text-gray-900">
+              AI Recommendations
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Discover new investment opportunities.
+            </p>
+          </div>
+          {hasStocks && (
+            <button
+              onClick={onRebalance}
+              className={`p-2 rounded-full text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${
+                isRebalancing ? "animate-spin" : ""
+              }`}
+              title="Refresh recommendations"
+              disabled={isRebalancing}
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span className="sr-only">Refresh recommendations</span>
+            </button>
           )}
-        </button>
-      </div>
+        </div>
 
-      {showPlaceholder ? (
-        <div className="flex flex-col items-center justify-center h-48 text-center text-gray-500">
-          <Search size={48} className="mb-4 text-gray-300" />
-          <p>{placeholderText}</p>
-        </div>
-      ) : isRebalancing ? (
-        <div className="flex flex-col items-center justify-center h-48 text-center text-gray-500">
-          <RefreshCw size={48} className="mb-4 text-indigo-400 animate-spin" />
-          <p>Generating recommendations...</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {recommendations.map((rec, index) => (
-            <RecommendationItem
-              key={index} // Consider using a more stable key if available (e.g., rec.id)
-              recommendation={rec}
-              onAddClick={onAddRecommendationClick}
-            />
-          ))}
-        </div>
-      )}
+        {recommendations.length > 0 ? (
+          <div className="mt-4 space-y-4">
+            {recommendations.map((rec, index) => (
+              <RecommendationItem
+                key={`${rec.ticker}-${index}`}
+                recommendation={rec}
+                onAddClick={onAddRecommendationClick}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-32 text-center text-gray-500 mt-4">
+            {isRebalancing ? (
+              <div className="flex flex-col items-center">
+                <RefreshCw
+                  size={24}
+                  className="mb-3 text-indigo-400 animate-spin"
+                />
+                <p className="text-sm">Generating recommendations...</p>
+              </div>
+            ) : (
+              <>
+                <Search size={24} className="mb-3 text-gray-400" />
+                <p className="text-sm">{placeholderText}</p>
+              </>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

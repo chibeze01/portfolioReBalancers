@@ -20,21 +20,35 @@ const StockRow: React.FC<StockRowProps> = ({
     totalPortfolioValue > 0 ? (stockValue / totalPortfolioValue) * 100 : 0;
 
   return (
-    <tr className="border-b border-gray-200 hover:bg-gray-50">
-      <td className="py-3 px-4 font-medium">{stock.ticker}</td>
-      <td className="py-3 px-4">{stock.name}</td>
-      <td className="py-3 px-4 text-right">{stock.shares}</td>
-      <td className="py-3 px-4 text-right">${stock.price.toFixed(2)}</td>
-      <td className="py-3 px-4 text-right">${stockValue.toFixed(2)}</td>
-      <td className="py-3 px-4 text-right">{stock.allocation}%</td>
-      <td className="py-3 px-4 text-right">{currentAllocation.toFixed(2)}%</td>
-      <td className="py-3 px-4 text-center">
+    <tr>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+        {stock.ticker}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {stock.name}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {stock.shares}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        ${stock.price.toFixed(2)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        ${stockValue.toFixed(2)}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {stock.allocation}%
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {currentAllocation.toFixed(2)}%
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
         <button
-          className="text-red-500 hover:text-red-700"
+          className="text-red-600 hover:text-red-900"
           onClick={() => onRemove(stock.id)}
           aria-label={`Remove ${stock.ticker}`}
         >
-          <Trash2 size={18} />
+          <Trash2 size={16} />
         </button>
       </td>
     </tr>
