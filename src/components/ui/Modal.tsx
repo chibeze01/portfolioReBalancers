@@ -52,7 +52,7 @@ const Modal: React.FC<ModalProps> = ({
 
   // Handle outside click
   const handleBackdropClick = (e: React.MouseEvent) => {
-    if (closeOnClickOutside && e.target !== e.currentTarget) {
+    if (closeOnClickOutside && modalRef.current && !modalRef.current.contains(e.target as Node)) {
       onClose();
     }
   };
