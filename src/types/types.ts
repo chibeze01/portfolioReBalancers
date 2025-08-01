@@ -8,6 +8,7 @@ export interface Stock {
   shares: number;
   price: number;
   allocation: number; // Target allocation percentage
+  priceChange?: number; // Change to date (percentage)
   created_at?: string; // Optional, as it's added later
 }
 
@@ -19,6 +20,25 @@ export interface Recommendation {
   ticker: string;
   name: string;
   reason: string;
+}
+
+// Type for rebalance item in a rebalance artifact
+export interface RebalanceItem {
+  ticker: string;
+  name: string;
+  currentAllocation: number;
+  targetAllocation: number;
+  newAllocation: number;
+  action: "Buy" | "Sell" | "Hold" | "Adjust";
+}
+
+// Type for the rebalance artifact
+export interface RebalanceArtifact {
+  id: number;
+  createdAt: string;
+  portfolioValue: number;
+  riskRatio: number;
+  items: RebalanceItem[];
 }
 
 // Type for the user object in the session

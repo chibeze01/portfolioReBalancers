@@ -1,5 +1,6 @@
 // src/components/recommendations/RecommendationItem.tsx
 import React from "react";
+import { Plus } from "lucide-react";
 import type { Recommendation } from "../../types/types";
 
 interface RecommendationItemProps {
@@ -12,22 +13,27 @@ const RecommendationItem: React.FC<RecommendationItemProps> = ({
   onAddClick,
 }) => {
   return (
-    <div className="border border-gray-200 rounded-md p-4 hover:bg-gray-50 transition duration-150 ease-in-out">
-      <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row">
-        <div className="mb-2 sm:mb-0">
-          <h3 className="font-medium text-indigo-700">
-            {recommendation.ticker}
-          </h3>
-          <p className="text-sm text-gray-600">{recommendation.name}</p>
+    <div className="p-4 rounded-md border border-gray-200 hover:border-indigo-200 hover:shadow-sm transition-all duration-200 flex justify-between items-center">
+      <div className="flex-grow">
+        <div className="flex items-center">
+          <p className="font-semibold text-gray-800">{recommendation.ticker}</p>
+          <span className="mx-2 text-gray-400">•</span>
+          <p className="text-sm text-gray-600 truncate">
+            {recommendation.name}
+          </p>
         </div>
-        <button
-          className="text-sm text-blue-600 hover:text-blue-800 font-medium py-1 px-3 rounded bg-blue-100 hover:bg-blue-200 transition duration-150 ease-in-out"
-          onClick={() => onAddClick(recommendation.ticker, recommendation.name)}
-        >
-          Add
-        </button>
+        <p className="mt-1 text-xs text-gray-500 line-clamp-2">
+          {recommendation.reason}
+        </p>
       </div>
-      <p className="text-sm mt-2 text-gray-700">{recommendation.reason}</p>
+      <button
+        className="ml-4 px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-100 rounded-full hover:bg-indigo-200 transition-colors flex items-center gap-1"
+        onClick={() => onAddClick(recommendation.ticker, recommendation.name)}
+        title={`Add ${recommendation.ticker} to your portfolio`}
+      >
+        <Plus className="h-3.5 w-3.5" />
+        <span>Add</span>
+      </button>
     </div>
   );
 };
