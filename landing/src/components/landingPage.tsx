@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from "react";
 import GlassBar from "./glassbar";
-import HeroImage from "./../../public/AlphoraHeroImage.png";
-import FloatingCubeImage from "./../../public/img4.png";
-import Optimisation from "./../../public/perplexity image 12.avif";
-import asManyAsthestars from "./../../public/image 2.avif";
-import StressTestImage from "./../../public/image 5.avif";
+import HeroImage from "./../assets/AlphoraHeroImage.png";
+import FloatingCubeImage from "./../assets/img4.png";
+import Optimisation from "./../assets/perplexity image 12.avif";
+import asManyAsthestars from "./../assets/image 2.avif";
+import StressTestImage from "./../assets/image 5.avif";
 // Feature & UI icons (Material UI)
 import QueryStatsIcon from "@mui/icons-material/QueryStats";
 import AutoGraphIcon from "@mui/icons-material/AutoGraph";
