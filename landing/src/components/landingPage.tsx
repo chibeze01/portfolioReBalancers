@@ -11,20 +11,38 @@ import AutoGraphIcon from "@mui/icons-material/AutoGraph";
 import PublicIcon from "@mui/icons-material/Public";
 import CrisisAlertIcon from "@mui/icons-material/CrisisAlert";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { subscribeEmail } from "../utils/mailchimp";
 
 export default function LandingPage() {
   const [email, setEmail] = useState<string>("");
   const [showFloatingBar, setShowFloatingBar] = useState<boolean>(false);
   const [dockProgress, setDockProgress] = useState(0); // 0 = fully floating, 1 = fully docked inside CTA
+  const [subStatus, setSubStatus] = useState<{
+    state: "idle" | "loading" | "success" | "error";
+    message: string;
+  }>({ state: "idle", message: "" });
 
   const featuresRef = useRef<HTMLDivElement | null>(null);
   const faqRef = useRef<HTMLDivElement | null>(null);
   const ctaEndRef = useRef<HTMLDivElement | null>(null);
   const ctaFormRef = useRef<HTMLFormElement | null>(null);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    alert(`Thanks! We'll be in touch at ${email}`);
+    if (!email) return;
+    setSubStatus({ state: "loading", message: "Submitting..." });
+    const res = await subscribeEmail(email);
+    if (res.ok) {
+      setSubStatus({
+        state: "success",
+        message: "Success! Added to the list.",
+      });
+    } else {
+      setSubStatus({
+        state: "error",
+        message: res.message || "Could not subscribe.",
+      });
+    }
   };
 
   useEffect(() => {
@@ -185,9 +203,19 @@ export default function LandingPage() {
                 Join waitlist
               </button>
             </form>
-            <p className="mt-3 text-sm text-gray-400">
-              No spam. Unsubscribe anytime.
-            </p>
+            {subStatus.state !== "idle" && (
+              <p
+                className={`mt-3 text-sm ${
+                  subStatus.state === "success"
+                    ? "text-emerald-400"
+                    : subStatus.state === "error"
+                    ? "text-rose-400"
+                    : "text-gray-400"
+                }`}
+              >
+                {subStatus.message}
+              </p>
+            )}
           </div>
 
           <div className="relative">
@@ -445,6 +473,7 @@ export default function LandingPage() {
               onSubmit={handleSubmit}
               email={email}
               setEmail={setEmail}
+              status={subStatus}
             />
           </div>
         </div>
@@ -461,6 +490,7 @@ export default function LandingPage() {
               onSubmit={handleSubmit}
               email={email}
               setEmail={setEmail}
+              status={subStatus}
               className="shadow-2xl"
             />
           </div>
@@ -475,10 +505,10 @@ export default function LandingPage() {
               © {new Date().getFullYear()} Alphora. All rights reserved.
             </p>
             <a
-              href="mailto:Inquire@alphora.app?subject=Alphora%20Inquiry"
+              href="mailto:Inquire@alphora.lambdalearner.com?subject=Alphora%20Inquiry"
               className="text-sm text-gray-400 hover:text-gray-200"
             >
-              Inquire@alphora.app
+              Inquire@alphora.com
             </a>
           </div>
         </div>

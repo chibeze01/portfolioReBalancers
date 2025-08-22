@@ -3,6 +3,7 @@ interface GlassBarProps {
   email: string;
   setEmail: React.Dispatch<React.SetStateAction<string>>;
   className?: string;
+  status?: { state: "idle" | "loading" | "success" | "error"; message: string };
 }
 
 function GlassBar({
@@ -10,6 +11,7 @@ function GlassBar({
   email,
   setEmail,
   className = "",
+  status,
 }: GlassBarProps) {
   return (
     <div
@@ -33,12 +35,26 @@ function GlassBar({
           />
           <button
             type="submit"
-            className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 cursor-pointer"
+            className="rounded-xl bg-white px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/40"
+            disabled={status?.state === "loading"}
           >
-            Join
+            {status?.state === "loading" ? "…" : "Join"}
           </button>
         </form>
       </div>
+      {status && status.state !== "idle" && (
+        <p
+          className={`mt-2 text-xs ${
+            status.state === "success"
+              ? "text-emerald-400"
+              : status.state === "error"
+              ? "text-rose-400"
+              : "text-gray-400"
+          }`}
+        >
+          {status.message}
+        </p>
+      )}
     </div>
   );
 }
