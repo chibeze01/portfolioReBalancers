@@ -386,11 +386,19 @@ class PortfolioMetrics(BaseModel):
         Standard deviation of portfolio returns (per period).  Must be non‑negative.
     sharpe_ratio : float
         Sharpe ratio of the portfolio.
+    beta : float, optional
+        Portfolio beta relative to the benchmark (SPY).  None when no
+        benchmark data is available.
+    alpha : float, optional
+        Jensen's alpha relative to the benchmark (SPY).  None when no
+        benchmark data is available.
     """
 
     expected_return: float = Field(...)
     volatility: float = Field(..., ge=0.0)
     sharpe_ratio: float = Field(...)
+    beta: Optional[float] = Field(None, description="Portfolio beta relative to benchmark (SPY)")
+    alpha: Optional[float] = Field(None, description="Jensen's alpha relative to benchmark (SPY)")
 
 
 class CovarianceOutput(BaseModel):
