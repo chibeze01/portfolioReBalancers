@@ -172,10 +172,15 @@ def build_portfolio_metrics(
         risk_free_rate=risk_free_rate,
         confidence_level=confidence_level,
     )
+    def _nan_to_none(val: Optional[float]) -> Optional[float]:
+        return None if (val is None or (isinstance(val, float) and math.isnan(val))) else val
+
     return PortfolioMetrics(
         expected_return=metrics['expected_return'],
         volatility=metrics['volatility'],
         sharpe_ratio=metrics['sharpe_ratio'],
+        beta=_nan_to_none(metrics.get('beta')),
+        alpha=_nan_to_none(metrics.get('alpha')),
     )
 
 
