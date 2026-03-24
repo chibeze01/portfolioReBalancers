@@ -175,9 +175,9 @@ export function MonteCarloFrontierChart({ portfolioId }: MonteCarloFrontierChart
                       <circle
                         cx={cx}
                         cy={cy}
-                        r={2}
+                        r={1}
                         fill={payload.color}
-                        opacity={0.55}
+                        opacity={0.7}
                       />
                     )
                   }}
