@@ -69,6 +69,30 @@ function specialPoint(p: MonteCarloPortfolioPoint, label: string) {
   return { ...p, label }
 }
 
+/** 5-pointed star centred at (cx, cy) with outer radius R and inner radius r. */
+function starPath(cx: number, cy: number, R: number, r: number): string {
+  const points: string[] = []
+  for (let k = 0; k < 10; k++) {
+    const angle = (k * Math.PI) / 5 - Math.PI / 2
+    const radius = k % 2 === 0 ? R : r
+    points.push(`${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`)
+  }
+  return `M ${points.join(" L ")} Z`
+}
+
+function CurrentPortfolioShape({ cx, cy }: { cx?: number; cy?: number }) {
+  if (cx == null || cy == null) return null
+  return (
+    <path
+      d={starPath(cx, cy, 12, 5)}
+      fill="#FF6B35"
+      stroke="#ffffff"
+      strokeWidth={1.5}
+      strokeLinejoin="round"
+    />
+  )
+}
+
 export function MonteCarloFrontierChart({ portfolioId }: MonteCarloFrontierChartProps) {
   const { data, loading, error, fetchSimulation } = useMonteCarloFrontier(portfolioId)
 
@@ -183,19 +207,17 @@ export function MonteCarloFrontierChart({ portfolioId }: MonteCarloFrontierChart
                   }}
                 />
 
-                {/* Current portfolio */}
+                {/* Current portfolio — bright orange star to stand out against the colour cloud */}
                 <ReferenceDot
                   x={data.current_portfolio.volatility}
                   y={data.current_portfolio.expected_return}
-                  r={9}
-                  fill="hsl(var(--chart-2))"
-                  stroke="white"
-                  strokeWidth={1.5}
+                  shape={<CurrentPortfolioShape />}
                   label={{
-                    value: "You",
+                    value: "Your Portfolio",
                     position: "top",
-                    fontSize: 11,
-                    fill: "hsl(var(--chart-2))",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    fill: "#FF6B35",
                   }}
                 />
 
