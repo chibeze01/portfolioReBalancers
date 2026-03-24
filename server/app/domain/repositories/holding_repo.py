@@ -18,13 +18,14 @@ def find_by_symbol(db: Session, portfolio_id: uuid.UUID, symbol: str):
     )
 
 
-def create_holding(db: Session, portfolio_id: uuid.UUID, symbol: str, quantity, avg_cost, first_purchase_date):
+def create_holding(db: Session, portfolio_id: uuid.UUID, symbol: str, quantity, avg_cost, first_purchase_date, target_allocation=None):
     obj = tables.Holding(
         portfolio_id=portfolio_id,
         symbol=symbol,
         quantity=quantity,
         average_cost=avg_cost,
         first_purchase_date=first_purchase_date,
+        target_allocation=target_allocation,
     )
     db.add(obj)
     db.flush()

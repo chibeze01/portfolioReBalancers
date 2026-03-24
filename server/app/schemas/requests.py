@@ -20,6 +20,7 @@ class CreateOrUpdateHoldingRequest(BaseModel):
     quantity: Decimal
     purchase_price: Decimal
     purchase_date: date | None = None
+    target_allocation: Decimal | None = None
 
     @field_validator("symbol")
     @classmethod

@@ -6,11 +6,9 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     DB_URL: str = Field(..., description="SQLAlchemy database URL")
-    SUPABASE_JWKS_URL: str
-    SUPABASE_AUDIENCE: str = "authenticated"
+    JWT_SECRET: str = Field(default="dev-secret-change-in-production", description="Secret key for JWT signing")
     LOG_LEVEL: str = "INFO"
     ENV: str = "dev"  # dev | prod | test
-
     class Config:
         env_file = ".env"
         case_sensitive = False
