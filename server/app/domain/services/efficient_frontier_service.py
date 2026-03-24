@@ -25,6 +25,14 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
       symbols, n, expected_returns, cov_matrix, current_weights, target_weights
     Raises HTTPException on insufficient data.
     """
+def compute_efficient_frontier(
+    db: Session,
+    user_id: str,
+    portfolio_id: uuid.UUID,
+    num_points: int = 30,
+    risk_free_rate: float = 0.05,
+) -> dict:
+    """Compute the efficient frontier for a portfolio's holdings."""
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
 
@@ -38,6 +46,7 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     quantities = {h.symbol: float(h.quantity) for h in p.holdings}
     n = len(symbols)
 
+    # Fetch historical prices (90 days for better statistics)
     returns_matrix = []
     for symbol in symbols:
         history = get_historical_prices(symbol, 90)
@@ -67,6 +76,7 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     expected_returns = mean_daily * trading_days
     cov_matrix = cov_daily * trading_days
 
+    # Current portfolio weights
     current_values = {}
     total_value = 0.0
     for symbol in symbols:
