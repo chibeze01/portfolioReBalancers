@@ -18,14 +18,13 @@ def _get_price(symbol: str) -> Decimal:
     return yahoo_get_price(symbol) or stub_get_price(symbol)
 
 
-def compute_efficient_frontier(
-    db: Session,
-    user_id: str,
-    portfolio_id: uuid.UUID,
-    num_points: int = 30,
-    risk_free_rate: float = 0.05,
-) -> dict:
-    """Compute the efficient frontier for a portfolio's holdings."""
+def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
+    """Fetch and annualise price/return data for all holdings in a portfolio.
+
+    Returns a dict with keys:
+      symbols, n, expected_returns, cov_matrix, current_weights, target_weights
+    Raises HTTPException on insufficient data.
+    """
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
 
@@ -39,7 +38,6 @@ def compute_efficient_frontier(
     quantities = {h.symbol: float(h.quantity) for h in p.holdings}
     n = len(symbols)
 
-    # Fetch historical prices (90 days for better statistics)
     returns_matrix = []
     for symbol in symbols:
         history = get_historical_prices(symbol, 90)
@@ -49,19 +47,17 @@ def compute_efficient_frontier(
                 detail=f"Insufficient historical data for {symbol}",
             )
         prices = [float(item["price"]) for item in history]
-        # Compute daily returns
-        daily_returns = []
-        for i in range(1, len(prices)):
-            if prices[i - 1] > 0:
-                daily_returns.append((prices[i] - prices[i - 1]) / prices[i - 1])
+        daily_returns = [
+            (prices[i] - prices[i - 1]) / prices[i - 1]
+            for i in range(1, len(prices))
+            if prices[i - 1] > 0
+        ]
         returns_matrix.append(daily_returns)
 
-    # Align return series to same length
     min_len = min(len(r) for r in returns_matrix)
     returns_matrix = [r[:min_len] for r in returns_matrix]
-    returns_array = np.array(returns_matrix)  # shape: (n_assets, n_days)
+    returns_array = np.array(returns_matrix)  # (n_assets, n_days)
 
-    # Annualized expected returns and covariance
     mean_daily = np.mean(returns_array, axis=1)
     cov_daily = np.cov(returns_array)
     if cov_daily.ndim == 0:
@@ -71,7 +67,6 @@ def compute_efficient_frontier(
     expected_returns = mean_daily * trading_days
     cov_matrix = cov_daily * trading_days
 
-    # Current portfolio weights
     current_values = {}
     total_value = 0.0
     for symbol in symbols:
@@ -80,13 +75,45 @@ def compute_efficient_frontier(
         current_values[symbol] = val
         total_value += val
 
-    current_weights = np.array([current_values[s] / total_value for s in symbols]) if total_value > 0 else np.ones(n) / n
+    current_weights = (
+        np.array([current_values[s] / total_value for s in symbols])
+        if total_value > 0
+        else np.ones(n) / n
+    )
 
-    # Target weights (from target_allocation if set)
-    target_weights = None
     has_targets = all(h.target_allocation is not None for h in p.holdings)
-    if has_targets:
-        target_weights = np.array([float(h.target_allocation) / 100 for h in p.holdings])
+    target_weights = (
+        np.array([float(h.target_allocation) / 100 for h in p.holdings])
+        if has_targets
+        else None
+    )
+
+    return {
+        "symbols": symbols,
+        "n": n,
+        "expected_returns": expected_returns,
+        "cov_matrix": cov_matrix,
+        "current_weights": current_weights,
+        "target_weights": target_weights,
+        "portfolio_id": portfolio_id,
+    }
+
+
+def compute_efficient_frontier(
+    db: Session,
+    user_id: str,
+    portfolio_id: uuid.UUID,
+    num_points: int = 30,
+    risk_free_rate: float = 0.05,
+) -> dict:
+    """Compute the efficient frontier for a portfolio's holdings."""
+    data = _load_portfolio_data(db, user_id, portfolio_id)
+    symbols = data["symbols"]
+    n = data["n"]
+    expected_returns = data["expected_returns"]
+    cov_matrix = data["cov_matrix"]
+    current_weights = data["current_weights"]
+    target_weights = data["target_weights"]
 
     # Portfolio metrics helper
     def port_return(w):
@@ -166,3 +193,95 @@ def compute_efficient_frontier(
     }
 
     return response
+
+
+def compute_monte_carlo_frontier(
+    db: Session,
+    user_id: str,
+    portfolio_id: uuid.UUID,
+    num_samples: int = 10_000,
+    risk_free_rate: float = 0.05,
+) -> dict:
+    """Sample 10 000 random portfolios and return their risk/return metrics.
+
+    Each weight vector is drawn from the uniform Dirichlet distribution so
+    that weights sum to 1 and are non-negative.  Portfolio return, volatility
+    and Sharpe ratio are computed in a single vectorised pass with NumPy —
+    no Python loop over samples is needed.
+
+    The response contains all sampled portfolios (without per-sample weights,
+    to keep the payload small) plus the min-variance and max-Sharpe portfolios
+    identified within the sample set, the current portfolio, and optional
+    target portfolio — all with full weight breakdowns.
+    """
+    data = _load_portfolio_data(db, user_id, portfolio_id)
+    symbols = data["symbols"]
+    n = data["n"]
+    expected_returns = data["expected_returns"]
+    cov_matrix = data["cov_matrix"]
+    current_weights = data["current_weights"]
+    target_weights = data["target_weights"]
+
+    # --- Vectorised Monte Carlo sampling ---
+    rng = np.random.default_rng()
+    # Dirichlet(1, 1, …) gives uniform samples on the weight simplex
+    weights_matrix = rng.dirichlet(np.ones(n), size=num_samples)  # (S, n)
+
+    port_returns = weights_matrix @ expected_returns                        # (S,)
+    port_vols = np.sqrt(
+        np.einsum("ij,jk,ik->i", weights_matrix, cov_matrix, weights_matrix)
+    )                                                                        # (S,)
+    port_sharpes = np.where(
+        port_vols > 0,
+        (port_returns - risk_free_rate) / port_vols,
+        0.0,
+    )                                                                        # (S,)
+
+    # Identify special portfolios within the sample
+    min_vol_idx = int(np.argmin(port_vols))
+    max_sharpe_idx = int(np.argmax(port_sharpes))
+
+    def _point(w: np.ndarray, ret: float, vol: float, sharpe: float) -> dict:
+        return {
+            "expected_return": round(float(ret) * 100, 4),
+            "volatility": round(float(vol) * 100, 4),
+            "sharpe_ratio": round(float(sharpe), 4),
+            "weights": {symbols[i]: round(float(w[i]) * 100, 2) for i in range(n)},
+        }
+
+    def _current_metrics(w: np.ndarray) -> dict:
+        ret = float(w @ expected_returns)
+        vol = float(np.sqrt(w @ cov_matrix @ w))
+        sharpe = (ret - risk_free_rate) / vol if vol > 0 else 0.0
+        return _point(w, ret, vol, sharpe)
+
+    simulated_portfolios = [
+        {
+            "expected_return": round(float(port_returns[i]) * 100, 4),
+            "volatility": round(float(port_vols[i]) * 100, 4),
+            "sharpe_ratio": round(float(port_sharpes[i]), 4),
+        }
+        for i in range(num_samples)
+    ]
+
+    return {
+        "portfolio_id": str(portfolio_id),
+        "simulated_portfolios": simulated_portfolios,
+        "min_variance": _point(
+            weights_matrix[min_vol_idx],
+            port_returns[min_vol_idx],
+            port_vols[min_vol_idx],
+            port_sharpes[min_vol_idx],
+        ),
+        "max_sharpe": _point(
+            weights_matrix[max_sharpe_idx],
+            port_returns[max_sharpe_idx],
+            port_vols[max_sharpe_idx],
+            port_sharpes[max_sharpe_idx],
+        ),
+        "current_portfolio": _current_metrics(current_weights),
+        "target_portfolio": _current_metrics(target_weights) if target_weights is not None else None,
+        "symbols": symbols,
+        "risk_free_rate": risk_free_rate,
+        "num_samples": num_samples,
+    }

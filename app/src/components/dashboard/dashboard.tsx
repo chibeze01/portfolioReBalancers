@@ -6,6 +6,7 @@ import { PortfolioSelector } from "./portfolio-selector"
 import { RecommendationsPanel } from "./recommendations-panel"
 import { ImportExportDialog } from "./import-export-dialog"
 import { EfficientFrontierChart } from "./efficient-frontier-chart"
+import { MonteCarloFrontierChart } from "./monte-carlo-frontier-chart"
 import { Header } from "./header"
 import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, RefreshCw } from "lucide-react"
@@ -110,6 +111,13 @@ export function Dashboard({
                 <EfficientFrontierChart portfolioId={activePortfolioId} />
               )}
             </div>
+
+            {/* Monte Carlo simulation — full-width scatter of 10,000 random portfolios */}
+            {stocks.length >= 2 && (
+              <div className="grid grid-cols-1">
+                <MonteCarloFrontierChart portfolioId={activePortfolioId} />
+              </div>
+            )}
 
             {/* Holdings Table & Recommendations */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

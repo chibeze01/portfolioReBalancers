@@ -411,6 +411,43 @@ export const efficientFrontierApi = {
   },
 };
 
+// Monte Carlo Simulation Types
+export interface SimulatedPortfolio {
+  expected_return: number;
+  volatility: number;
+  sharpe_ratio: number;
+}
+
+export interface MonteCarloPortfolioPoint {
+  expected_return: number;
+  volatility: number;
+  sharpe_ratio: number;
+  weights: Record<string, number>;
+}
+
+export interface MonteCarloResponse {
+  portfolio_id: string;
+  simulated_portfolios: SimulatedPortfolio[];
+  min_variance: MonteCarloPortfolioPoint;
+  max_sharpe: MonteCarloPortfolioPoint;
+  current_portfolio: MonteCarloPortfolioPoint;
+  target_portfolio: MonteCarloPortfolioPoint | null;
+  symbols: string[];
+  risk_free_rate: number;
+  num_samples: number;
+}
+
+// Monte Carlo API
+export const monteCarloApi = {
+  async get(portfolioId: string, samples: number = 10_000): Promise<MonteCarloResponse> {
+    const response = await fetch(
+      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/efficient-frontier/simulation?samples=${samples}`,
+      { headers: getAuthHeaders() }
+    );
+    return handleResponse<MonteCarloResponse>(response);
+  },
+};
+
 // Health check
 export const healthApi = {
   async check(): Promise<{ status: string }> {
