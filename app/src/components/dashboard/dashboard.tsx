@@ -1,36 +1,48 @@
-import { SummaryCards } from "./summary-cards"
-import { HoldingsTable } from "./holdings-table"
-import { PortfolioChart } from "./portfolio-chart"
-import { AddStockDialog } from "./add-stock-dialog"
-import { PortfolioSelector } from "./portfolio-selector"
-import { RecommendationsPanel } from "./recommendations-panel"
-import { ImportExportDialog } from "./import-export-dialog"
-import { EfficientFrontierChart } from "./efficient-frontier-chart"
-import { Header } from "./header"
-import { Card, CardContent } from "@/components/ui/card"
-import { Loader2, RefreshCw } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import type { PortfolioStock } from "@/hooks/use-portfolio"
-import type { Portfolio, HistoricalDataPoint } from "@/lib/api"
+import { SummaryCards } from "./summary-cards";
+import { HoldingsTable } from "./holdings-table";
+import { PortfolioChart } from "./portfolio-chart";
+import { AddStockDialog } from "./add-stock-dialog";
+import { PortfolioSelector } from "./portfolio-selector";
+import { RecommendationsPanel } from "./recommendations-panel";
+import { ImportExportDialog } from "./import-export-dialog";
+import { CorrelationHeatmap } from "./correlation-heatmap";
+import { MonteCarloFrontierChart } from "./monte-carlo-frontier-chart";
+import { Header } from "./header";
+import { Card, CardContent } from "@/components/ui/card";
+import { Loader2, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { PortfolioStock } from "@/hooks/use-portfolio";
+import type { Portfolio, HistoricalDataPoint } from "@/lib/api";
 
 interface DashboardProps {
-  stocks: PortfolioStock[]
-  historicalData: HistoricalDataPoint[]
-  totalValue: number
-  totalPnl: number
-  loading: boolean
-  error: string | null
-  userEmail?: string
-  onLogout: () => void
-  onAddStock: (data: { symbol: string; quantity: number; purchase_price: number }) => Promise<boolean>
-  onRemoveStock: (id: string) => void
-  onRefresh: () => void
-  portfolios: Portfolio[]
-  activePortfolioId: string | null
-  onSelectPortfolio: (id: string) => void
-  onCreatePortfolio: (name: string, description?: string) => Promise<Portfolio | null>
-  onUpdatePortfolio: (id: string, name: string, description?: string) => Promise<boolean>
-  onDeletePortfolio: (id: string) => Promise<boolean>
+  stocks: PortfolioStock[];
+  historicalData: HistoricalDataPoint[];
+  totalValue: number;
+  totalPnl: number;
+  loading: boolean;
+  error: string | null;
+  userEmail?: string;
+  onLogout: () => void;
+  onAddStock: (data: {
+    symbol: string;
+    quantity: number;
+    purchase_price: number;
+  }) => Promise<boolean>;
+  onRemoveStock: (id: string) => void;
+  onRefresh: () => void;
+  portfolios: Portfolio[];
+  activePortfolioId: string | null;
+  onSelectPortfolio: (id: string) => void;
+  onCreatePortfolio: (
+    name: string,
+    description?: string,
+  ) => Promise<Portfolio | null>;
+  onUpdatePortfolio: (
+    id: string,
+    name: string,
+    description?: string,
+  ) => Promise<boolean>;
+  onDeletePortfolio: (id: string) => Promise<boolean>;
 }
 
 export function Dashboard({
@@ -76,10 +88,20 @@ export function Dashboard({
             />
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={onRefresh} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onRefresh}
+              disabled={loading}
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
+              />
             </Button>
-            <ImportExportDialog portfolioId={activePortfolioId} onImportComplete={onRefresh} />
+            <ImportExportDialog
+              portfolioId={activePortfolioId}
+              onImportComplete={onRefresh}
+            />
             <AddStockDialog onAdd={onAddStock} />
           </div>
         </div>
@@ -101,23 +123,35 @@ export function Dashboard({
         ) : (
           <>
             {/* Summary Cards */}
-            <SummaryCards stocks={stocks} totalValue={totalValue} totalPnl={totalPnl} />
+            <SummaryCards
+              stocks={stocks}
+              totalValue={totalValue}
+              totalPnl={totalPnl}
+            />
 
             {/* Charts */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-              <PortfolioChart data={historicalData} currentValue={totalValue} loading={loading} />
+              <PortfolioChart
+                data={historicalData}
+                currentValue={totalValue}
+                loading={loading}
+              />
               {stocks.length >= 2 && (
-                <EfficientFrontierChart portfolioId={activePortfolioId} />
+                <CorrelationHeatmap portfolioId={activePortfolioId} />
               )}
             </div>
+
+            {/* Monte Carlo simulation — full-width scatter of 10,000 random portfolios */}
+            {stocks.length >= 2 && (
+              <div className="grid grid-cols-1">
+                <MonteCarloFrontierChart portfolioId={activePortfolioId} />
+              </div>
+            )}
 
             {/* Holdings Table & Recommendations */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
-                <HoldingsTable
-                  stocks={stocks}
-                  onRemove={onRemoveStock}
-                />
+                <HoldingsTable stocks={stocks} onRemove={onRemoveStock} />
               </div>
               <div>
                 <RecommendationsPanel
@@ -139,5 +173,5 @@ export function Dashboard({
         </div>
       </footer>
     </div>
-  )
+  );
 }

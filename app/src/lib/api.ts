@@ -2,11 +2,11 @@
  * API client for communicating with the FastAPI backend
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-const API_PREFIX = '/api/v1';
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
+const API_PREFIX = "/api/v1";
 
 // Storage key for auth token (must match useAuth.ts)
-const TOKEN_KEY = 'portfolio_auth_token';
+const TOKEN_KEY = "portfolio_auth_token";
 
 interface ApiError {
   detail: string;
@@ -15,13 +15,13 @@ interface ApiError {
 function getAuthHeaders(): HeadersInit {
   const token = localStorage.getItem(TOKEN_KEY);
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   };
-  
+
   if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
+    headers["Authorization"] = `Bearer ${token}`;
   }
-  
+
   return headers;
 }
 
@@ -36,12 +36,12 @@ async function handleResponse<T>(response: Response): Promise<T> {
     }
     throw new Error(errorMessage);
   }
-  
+
   // Handle 204 No Content
   if (response.status === 204) {
     return {} as T;
   }
-  
+
   return response.json();
 }
 
@@ -159,17 +159,21 @@ export interface AuthResponse {
 export const authApi = {
   async login(email: string, password: string): Promise<AuthResponse> {
     const response = await fetch(`${API_BASE}${API_PREFIX}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
     return handleResponse<AuthResponse>(response);
   },
 
-  async register(email: string, password: string, name?: string): Promise<AuthResponse> {
+  async register(
+    email: string,
+    password: string,
+    name?: string,
+  ): Promise<AuthResponse> {
     const response = await fetch(`${API_BASE}${API_PREFIX}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, name }),
     });
     return handleResponse<AuthResponse>(response);
@@ -193,62 +197,86 @@ export const portfolioApi = {
   },
 
   async get(portfolioId: string): Promise<PortfolioDetail> {
-    const response = await fetch(`${API_BASE}${API_PREFIX}/portfolios/${portfolioId}`, {
-      headers: getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}`,
+      {
+        headers: getAuthHeaders(),
+      },
+    );
     return handleResponse<PortfolioDetail>(response);
   },
 
   async create(data: CreatePortfolioRequest): Promise<Portfolio> {
     const response = await fetch(`${API_BASE}${API_PREFIX}/portfolios`, {
-      method: 'POST',
+      method: "POST",
       headers: getAuthHeaders(),
       body: JSON.stringify(data),
     });
     return handleResponse<Portfolio>(response);
   },
 
-  async update(portfolioId: string, data: CreatePortfolioRequest): Promise<Portfolio> {
-    const response = await fetch(`${API_BASE}${API_PREFIX}/portfolios/${portfolioId}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
+  async update(
+    portfolioId: string,
+    data: CreatePortfolioRequest,
+  ): Promise<Portfolio> {
+    const response = await fetch(
+      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}`,
+      {
+        method: "PUT",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      },
+    );
     return handleResponse<Portfolio>(response);
   },
 
   async delete(portfolioId: string): Promise<void> {
-    const response = await fetch(`${API_BASE}${API_PREFIX}/portfolios/${portfolioId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}`,
+      {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      },
+    );
     await handleResponse<void>(response);
   },
 };
 
 // Holdings API
 export const holdingsApi = {
-  async addOrUpdate(portfolioId: string, data: CreateHoldingRequest): Promise<Holding> {
-    const response = await fetch(`${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/holdings`, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(data),
-    });
+  async addOrUpdate(
+    portfolioId: string,
+    data: CreateHoldingRequest,
+  ): Promise<Holding> {
+    const response = await fetch(
+      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/holdings`,
+      {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data),
+      },
+    );
     return handleResponse<Holding>(response);
   },
 
   async getDetail(holdingId: string): Promise<HoldingDetail> {
-    const response = await fetch(`${API_BASE}${API_PREFIX}/holdings/${holdingId}`, {
-      headers: getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE}${API_PREFIX}/holdings/${holdingId}`,
+      {
+        headers: getAuthHeaders(),
+      },
+    );
     return handleResponse<HoldingDetail>(response);
   },
 
   async delete(holdingId: string): Promise<void> {
-    const response = await fetch(`${API_BASE}${API_PREFIX}/holdings/${holdingId}`, {
-      method: 'DELETE',
-      headers: getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE}${API_PREFIX}/holdings/${holdingId}`,
+      {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      },
+    );
     await handleResponse<void>(response);
   },
 };
@@ -256,18 +284,24 @@ export const holdingsApi = {
 // Analytics API
 export const analyticsApi = {
   async getPnL(portfolioId: string): Promise<PnLResponse> {
-    const response = await fetch(`${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/pnl`, {
-      headers: getAuthHeaders(),
-    });
+    const response = await fetch(
+      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/pnl`,
+      {
+        headers: getAuthHeaders(),
+      },
+    );
     return handleResponse<PnLResponse>(response);
   },
 
-  async getHistorical(portfolioId: string, days: number = 30): Promise<HistoricalResponse> {
+  async getHistorical(
+    portfolioId: string,
+    days: number = 30,
+  ): Promise<HistoricalResponse> {
     const response = await fetch(
       `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/historical?days=${days}`,
       {
         headers: getAuthHeaders(),
-      }
+      },
     );
     return handleResponse<HistoricalResponse>(response);
   },
@@ -275,24 +309,30 @@ export const analyticsApi = {
 
 // Recommendations API
 export const recommendationsApi = {
-  async getForPortfolio(portfolioId: string, maxResults: number = 3): Promise<Recommendation[]> {
+  async getForPortfolio(
+    portfolioId: string,
+    maxResults: number = 3,
+  ): Promise<Recommendation[]> {
     const response = await fetch(
       `${API_BASE}${API_PREFIX}/recommendations/portfolio/${portfolioId}?max_results=${maxResults}`,
       {
         headers: getAuthHeaders(),
-      }
+      },
     );
     const data = await handleResponse<RecommendationsResponse>(response);
     return data.recommendations;
   },
 
-  async getQuick(currentTickers: string[], maxResults: number = 3): Promise<Recommendation[]> {
-    const tickersParam = currentTickers.join(',');
+  async getQuick(
+    currentTickers: string[],
+    maxResults: number = 3,
+  ): Promise<Recommendation[]> {
+    const tickersParam = currentTickers.join(",");
     const response = await fetch(
       `${API_BASE}${API_PREFIX}/recommendations/quick?current_tickers=${encodeURIComponent(tickersParam)}&max_results=${maxResults}`,
       {
         headers: getAuthHeaders(),
-      }
+      },
     );
     const data = await handleResponse<RecommendationsResponse>(response);
     return data.recommendations;
@@ -329,19 +369,22 @@ export const rebalanceApi = {
   async getRebalance(portfolioId: string): Promise<RebalanceResponse> {
     const response = await fetch(
       `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/rebalance`,
-      { headers: getAuthHeaders() }
+      { headers: getAuthHeaders() },
     );
     return handleResponse<RebalanceResponse>(response);
   },
 
-  async updateAllocations(portfolioId: string, allocations: AllocationUpdate[]): Promise<void> {
+  async updateAllocations(
+    portfolioId: string,
+    allocations: AllocationUpdate[],
+  ): Promise<void> {
     const response = await fetch(
       `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/holdings/allocations`,
       {
-        method: 'PUT',
+        method: "PUT",
         headers: getAuthHeaders(),
         body: JSON.stringify({ allocations }),
-      }
+      },
     );
     await handleResponse<void>(response);
   },
@@ -358,7 +401,7 @@ export const importExportApi = {
   async exportCsv(portfolioId: string): Promise<Blob> {
     const response = await fetch(
       `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/export`,
-      { headers: getAuthHeaders() }
+      { headers: getAuthHeaders() },
     );
     if (!response.ok) {
       throw new Error(`Export failed: ${response.status}`);
@@ -369,45 +412,75 @@ export const importExportApi = {
   async importCsv(portfolioId: string, file: File): Promise<ImportResult> {
     const token = localStorage.getItem(TOKEN_KEY);
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
     const response = await fetch(
       `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/import`,
       {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
-      }
+      },
     );
     return handleResponse<ImportResult>(response);
   },
 };
 
-// Efficient Frontier Types
-export interface FrontierPoint {
+// Correlation Matrix Types
+export interface CorrelationMatrixResponse {
+  portfolio_id: string;
+  symbols: string[];
+  correlation_matrix: number[][];
+  covariance_matrix: number[][];
+}
+
+// Correlation Matrix API
+export const correlationMatrixApi = {
+  async get(portfolioId: string): Promise<CorrelationMatrixResponse> {
+    const response = await fetch(
+      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/correlation-matrix`,
+      { headers: getAuthHeaders() },
+    );
+    return handleResponse<CorrelationMatrixResponse>(response);
+  },
+};
+
+// Monte Carlo Simulation Types
+export interface SimulatedPortfolio {
   expected_return: number;
   volatility: number;
+  sharpe_ratio: number;
+}
+
+export interface MonteCarloPortfolioPoint {
+  expected_return: number;
+  volatility: number;
+  sharpe_ratio: number;
   weights: Record<string, number>;
 }
 
-export interface EfficientFrontierResponse {
+export interface MonteCarloResponse {
   portfolio_id: string;
-  frontier_points: FrontierPoint[];
-  current_portfolio: FrontierPoint;
-  target_portfolio: FrontierPoint | null;
-  min_variance: FrontierPoint;
-  max_sharpe: FrontierPoint;
+  simulated_portfolios: SimulatedPortfolio[];
+  min_variance: MonteCarloPortfolioPoint;
+  max_sharpe: MonteCarloPortfolioPoint;
+  current_portfolio: MonteCarloPortfolioPoint;
+  target_portfolio: MonteCarloPortfolioPoint | null;
   symbols: string[];
   risk_free_rate: number;
+  num_samples: number;
 }
 
-// Efficient Frontier API
-export const efficientFrontierApi = {
-  async get(portfolioId: string, points: number = 30): Promise<EfficientFrontierResponse> {
+// Monte Carlo API
+export const monteCarloApi = {
+  async get(
+    portfolioId: string,
+    samples: number = 10_000,
+  ): Promise<MonteCarloResponse> {
     const response = await fetch(
-      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/efficient-frontier?points=${points}`,
-      { headers: getAuthHeaders() }
+      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/efficient-frontier/simulation?samples=${samples}`,
+      { headers: getAuthHeaders() },
     );
-    return handleResponse<EfficientFrontierResponse>(response);
+    return handleResponse<MonteCarloResponse>(response);
   },
 };
 
