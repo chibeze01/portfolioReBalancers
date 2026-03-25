@@ -425,35 +425,22 @@ export const importExportApi = {
   },
 };
 
-// Efficient Frontier Types
-export interface FrontierPoint {
-  expected_return: number;
-  volatility: number;
-  weights: Record<string, number>;
-}
-
-export interface EfficientFrontierResponse {
+// Correlation Matrix Types
+export interface CorrelationMatrixResponse {
   portfolio_id: string;
-  frontier_points: FrontierPoint[];
-  current_portfolio: FrontierPoint;
-  target_portfolio: FrontierPoint | null;
-  min_variance: FrontierPoint;
-  max_sharpe: FrontierPoint;
   symbols: string[];
-  risk_free_rate: number;
+  correlation_matrix: number[][];
+  covariance_matrix: number[][];
 }
 
-// Efficient Frontier API
-export const efficientFrontierApi = {
-  async get(
-    portfolioId: string,
-    points: number = 30,
-  ): Promise<EfficientFrontierResponse> {
+// Correlation Matrix API
+export const correlationMatrixApi = {
+  async get(portfolioId: string): Promise<CorrelationMatrixResponse> {
     const response = await fetch(
-      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/efficient-frontier?points=${points}`,
+      `${API_BASE}${API_PREFIX}/portfolios/${portfolioId}/correlation-matrix`,
       { headers: getAuthHeaders() },
     );
-    return handleResponse<EfficientFrontierResponse>(response);
+    return handleResponse<CorrelationMatrixResponse>(response);
   },
 };
 

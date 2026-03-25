@@ -21,6 +21,17 @@ def get_efficient_frontier(
     )
 
 
+@router.get("/portfolios/{portfolio_id}/correlation-matrix")
+def get_correlation_matrix(
+    portfolio_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(require_user),
+):
+    return efficient_frontier_service.compute_correlation_matrix(
+        db, user_id, portfolio_id
+    )
+
+
 @router.get("/portfolios/{portfolio_id}/efficient-frontier/simulation")
 def get_monte_carlo_frontier(
     portfolio_id: uuid.UUID,

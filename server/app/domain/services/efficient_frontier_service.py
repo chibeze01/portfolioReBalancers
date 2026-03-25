@@ -25,14 +25,6 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
       symbols, n, expected_returns, cov_matrix, current_weights, target_weights
     Raises HTTPException on insufficient data.
     """
-def compute_efficient_frontier(
-    db: Session,
-    user_id: str,
-    portfolio_id: uuid.UUID,
-    num_points: int = 30,
-    risk_free_rate: float = 0.05,
-) -> dict:
-    """Compute the efficient frontier for a portfolio's holdings."""
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
 
@@ -106,6 +98,30 @@ def compute_efficient_frontier(
         "current_weights": current_weights,
         "target_weights": target_weights,
         "portfolio_id": portfolio_id,
+    }
+
+
+def compute_correlation_matrix(
+    db: Session,
+    user_id: str,
+    portfolio_id: uuid.UUID,
+) -> dict:
+    """Return the correlation and covariance matrices for a portfolio's holdings."""
+    data = _load_portfolio_data(db, user_id, portfolio_id)
+    cov_matrix = data["cov_matrix"]
+
+    # Derive correlation matrix from covariance: corr(i,j) = cov(i,j) / (std_i * std_j)
+    std_devs = np.sqrt(np.diag(cov_matrix))
+    d_inv = 1.0 / std_devs
+    correlation_matrix = cov_matrix * np.outer(d_inv, d_inv)
+    # Clamp diagonal to exactly 1.0 (avoid floating-point drift)
+    np.fill_diagonal(correlation_matrix, 1.0)
+
+    return {
+        "portfolio_id": str(portfolio_id),
+        "symbols": data["symbols"],
+        "correlation_matrix": correlation_matrix.tolist(),
+        "covariance_matrix": cov_matrix.tolist(),
     }
 
 

@@ -5,7 +5,7 @@ import { AddStockDialog } from "./add-stock-dialog";
 import { PortfolioSelector } from "./portfolio-selector";
 import { RecommendationsPanel } from "./recommendations-panel";
 import { ImportExportDialog } from "./import-export-dialog";
-import { EfficientFrontierChart } from "./efficient-frontier-chart";
+import { CorrelationHeatmap } from "./correlation-heatmap";
 import { MonteCarloFrontierChart } from "./monte-carlo-frontier-chart";
 import { Header } from "./header";
 import { Card, CardContent } from "@/components/ui/card";
@@ -137,7 +137,7 @@ export function Dashboard({
                 loading={loading}
               />
               {stocks.length >= 2 && (
-                <EfficientFrontierChart portfolioId={activePortfolioId} />
+                <CorrelationHeatmap portfolioId={activePortfolioId} />
               )}
             </div>
 
