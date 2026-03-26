@@ -38,11 +38,11 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     quantities = {h.symbol: float(h.quantity) for h in p.holdings}
     n = len(symbols)
 
-    # Fetch historical prices (90 days for better statistics)
+    # Fetch historical prices (365 days ≈ 252 trading days for stable estimates)
     returns_matrix = []
     for symbol in symbols:
-        history = get_historical_prices(symbol, 90)
-        if not history or len(history) < 10:
+        history = get_historical_prices(symbol, 365)
+        if not history or len(history) < 60:
             raise HTTPException(
                 status_code=400,
                 detail=f"Insufficient historical data for {symbol}",
@@ -65,7 +65,7 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
         cov_daily = np.array([[float(cov_daily)]])
 
     trading_days = 252
-    expected_returns = mean_daily * trading_days
+    expected_returns = (1 + mean_daily) ** trading_days - 1
     cov_matrix = cov_daily * trading_days
 
     # Current portfolio weights
