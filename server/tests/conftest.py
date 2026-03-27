@@ -12,8 +12,8 @@ def setup_db():
     yield
 
 
-TEST_USER = str(uuid.uuid4())
-OTHER_USER = str(uuid.uuid4())
+TEST_USER = uuid.uuid4()
+OTHER_USER = uuid.uuid4()
 
 
 def override_current_user():

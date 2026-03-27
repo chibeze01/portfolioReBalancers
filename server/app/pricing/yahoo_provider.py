@@ -20,40 +20,40 @@ _HISTORICAL_CACHE_TTL = timedelta(minutes=30)
 def get_price(symbol: str) -> Optional[Decimal]:
     """
     Fetch current price for a stock symbol from Yahoo Finance.
-    
+
     Returns None if unable to fetch (caller should fallback to stub).
     Results are cached for 5 minutes.
     """
     symbol = symbol.upper()
     now = datetime.now()
-    
+
     # Check cache
     if symbol in _price_cache:
         price, cached_at = _price_cache[symbol]
         if now - cached_at < _CACHE_TTL:
             return price
-    
+
     try:
         import yfinance as yf
         ticker = yf.Ticker(symbol)
         info = ticker.info
-        
+
         # Try different price fields
         price_value = (
             info.get('regularMarketPrice') or
             info.get('currentPrice') or
             info.get('previousClose')
         )
-        
+
         if price_value is None:
             logger.warning(f"No price data found for {symbol}")
             return None
-        
+
         price = Decimal(str(price_value))
         _price_cache[symbol] = (price, now)
         logger.debug(f"Fetched price for {symbol}: {price}")
         return price
-        
+
     except Exception as e:
         logger.warning(f"Failed to fetch price for {symbol}: {e}")
         return None
@@ -67,7 +67,7 @@ def get_stock_info(symbol: str) -> Optional[Dict]:
         import yfinance as yf
         ticker = yf.Ticker(symbol)
         info = ticker.info
-        
+
         return {
             'symbol': symbol.upper(),
             'name': info.get('shortName') or info.get('longName') or symbol,
@@ -81,6 +81,36 @@ def get_stock_info(symbol: str) -> Optional[Dict]:
     except Exception as e:
         logger.warning(f"Failed to fetch info for {symbol}: {e}")
         return None
+
+
+
+def get_stocks_info_batch(symbols: list[str]) -> Dict[str, Optional[Dict]]:
+    """
+    Fetch extended stock information for multiple symbols concurrently.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    result = {}
+
+    # Remove duplicates
+    unique_symbols = list(set(symbols))
+    if not unique_symbols:
+        return result
+
+    with ThreadPoolExecutor(max_workers=min(10, len(unique_symbols))) as executor:
+        # Map symbols to futures
+        future_to_symbol = {executor.submit(get_stock_info, symbol): symbol for symbol in unique_symbols}
+
+        for future in future_to_symbol:
+            symbol = future_to_symbol[future]
+            try:
+                info = future.result()
+                result[symbol.upper()] = info
+            except Exception as e:
+                logger.warning(f"Failed to fetch batch info for {symbol}: {e}")
+                result[symbol.upper()] = None
+
+    return result
 
 
 def get_prices_batch(symbols: list[str]) -> Dict[str, Optional[Decimal]]:
