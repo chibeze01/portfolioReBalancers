@@ -26,13 +26,26 @@ function getAuthHeaders(): HeadersInit {
 }
 
 async function handleResponse<T>(response: Response): Promise<T> {
+  const contentType = response.headers.get("content-type");
+
   if (!response.ok) {
     let errorMessage = `HTTP error ${response.status}`;
-    try {
-      const errorData: ApiError = await response.json();
-      errorMessage = errorData.detail || errorMessage;
-    } catch {
-      // Ignore JSON parse errors
+    if (contentType && contentType.includes("application/json")) {
+      try {
+        const errorData: ApiError = await response.json();
+        errorMessage = errorData.detail || errorMessage;
+      } catch {
+        // Ignore JSON parse errors
+      }
+    } else {
+      try {
+        const textData = await response.text();
+        if (textData) {
+          errorMessage = `${errorMessage}: ${textData}`;
+        }
+      } catch {
+        // Ignore text parse errors
+      }
     }
     throw new Error(errorMessage);
   }
@@ -42,7 +55,11 @@ async function handleResponse<T>(response: Response): Promise<T> {
     return {} as T;
   }
 
-  return response.json();
+  if (contentType && contentType.includes("application/json")) {
+    return response.json();
+  }
+
+  return (await response.text()) as unknown as T;
 }
 
 // Portfolio Types

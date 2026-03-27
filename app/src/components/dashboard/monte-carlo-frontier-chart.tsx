@@ -14,7 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Loader2, RefreshCw, BarChart2 } from "lucide-react"
 import { useMonteCarloFrontier } from "@/hooks/use-monte-carlo-frontier"
-import type { MonteCarloPortfolioPoint } from "@/lib/api"
+import type {  } from "@/lib/api"
 
 interface MonteCarloFrontierChartProps {
   portfolioId: string | null
@@ -63,10 +63,6 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
       )}
     </div>
   )
-}
-
-function specialPoint(p: MonteCarloPortfolioPoint, label: string) {
-  return { ...p, label }
 }
 
 /** 5-pointed star centred at (cx, cy) with outer radius R and inner radius r. */
