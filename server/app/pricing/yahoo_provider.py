@@ -20,40 +20,40 @@ _HISTORICAL_CACHE_TTL = timedelta(minutes=30)
 def get_price(symbol: str) -> Optional[Decimal]:
     """
     Fetch current price for a stock symbol from Yahoo Finance.
-    
+
     Returns None if unable to fetch (caller should fallback to stub).
     Results are cached for 5 minutes.
     """
     symbol = symbol.upper()
     now = datetime.now()
-    
+
     # Check cache
     if symbol in _price_cache:
         price, cached_at = _price_cache[symbol]
         if now - cached_at < _CACHE_TTL:
             return price
-    
+
     try:
         import yfinance as yf
         ticker = yf.Ticker(symbol)
         info = ticker.info
-        
+
         # Try different price fields
         price_value = (
             info.get('regularMarketPrice') or
             info.get('currentPrice') or
             info.get('previousClose')
         )
-        
+
         if price_value is None:
             logger.warning(f"No price data found for {symbol}")
             return None
-        
+
         price = Decimal(str(price_value))
         _price_cache[symbol] = (price, now)
         logger.debug(f"Fetched price for {symbol}: {price}")
         return price
-        
+
     except Exception as e:
         logger.warning(f"Failed to fetch price for {symbol}: {e}")
         return None
@@ -67,7 +67,7 @@ def get_stock_info(symbol: str) -> Optional[Dict]:
         import yfinance as yf
         ticker = yf.Ticker(symbol)
         info = ticker.info
-        
+
         return {
             'symbol': symbol.upper(),
             'name': info.get('shortName') or info.get('longName') or symbol,
@@ -133,6 +133,99 @@ def get_historical_prices(symbol: str, days: int = 30) -> Optional[list[dict]]:
     except Exception as e:
         logger.warning(f"Failed to fetch history for {symbol}: {e}")
         return None
+
+
+
+def get_historical_prices_batch(symbols: list[str], days: int = 30) -> Dict[str, Optional[list[dict]]]:
+    """
+    Fetch historical closing prices for multiple symbols from Yahoo Finance efficiently.
+
+    Returns dict of symbol -> list of {date: date, price: Decimal} or None if fetch fails.
+    Results cached for 30 minutes.
+    """
+    import yfinance as yf
+    import pandas as pd
+
+    symbols = [s.upper() for s in symbols]
+    now = datetime.now()
+    results = {}
+    to_fetch = []
+
+    # Check cache
+    for symbol in symbols:
+        cache_key = f"{symbol}_{days}"
+        if cache_key in _historical_cache:
+            data, cached_at = _historical_cache[cache_key]
+            if now - cached_at < _HISTORICAL_CACHE_TTL:
+                results[symbol] = data
+                continue
+        to_fetch.append(symbol)
+
+    if not to_fetch:
+        return results
+
+    try:
+        data = yf.download(to_fetch, period=f"{days}d", group_by="column", progress=False)
+
+        if data.empty:
+            for symbol in to_fetch:
+                logger.warning(f"No historical data for {symbol}")
+                results[symbol] = None
+                _historical_cache[f"{symbol}_{days}"] = (None, now)
+            return results
+
+        if isinstance(data.columns, pd.MultiIndex):
+            for symbol in to_fetch:
+                if 'Close' in data and symbol in data['Close']:
+                    col = data['Close'][symbol]
+                    res = []
+                    for date_idx, price in col.items():
+                        if price is not None and not pd.isna(price):
+                            res.append({
+                                "date": date_idx.date(),
+                                "price": Decimal(str(round(price, 2)))
+                            })
+                    if not res:
+                        results[symbol] = None
+                        _historical_cache[f"{symbol}_{days}"] = (None, now)
+                    else:
+                        results[symbol] = res
+                        _historical_cache[f"{symbol}_{days}"] = (res, now)
+                        logger.debug(f"Fetched {len(res)} days of history for {symbol}")
+                else:
+                    results[symbol] = None
+                    _historical_cache[f"{symbol}_{days}"] = (None, now)
+                    logger.warning(f"No historical close data for {symbol}")
+        else: # single symbol case
+            symbol = to_fetch[0]
+            if 'Close' in data:
+                col = data['Close']
+                res = []
+                for date_idx, price in col.items():
+                    if price is not None and not pd.isna(price):
+                        res.append({
+                            "date": date_idx.date(),
+                            "price": Decimal(str(round(price, 2)))
+                        })
+                if not res:
+                    results[symbol] = None
+                    _historical_cache[f"{symbol}_{days}"] = (None, now)
+                else:
+                    results[symbol] = res
+                    _historical_cache[f"{symbol}_{days}"] = (res, now)
+                    logger.debug(f"Fetched {len(res)} days of history for {symbol}")
+            else:
+                results[symbol] = None
+                _historical_cache[f"{symbol}_{days}"] = (None, now)
+                logger.warning(f"No historical close data for {symbol}")
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch history batch for {to_fetch}: {e}")
+        for symbol in to_fetch:
+            results[symbol] = None
+
+    return results
+
 
 
 def clear_cache():
