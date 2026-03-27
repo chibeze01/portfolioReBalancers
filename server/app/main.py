@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Portfolio API", lifespan=lifespan, swagger_ui_parameters={"defaultModelsExpandDepth": -1})
 
-# CORS configuration
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
