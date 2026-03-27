@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..models import RebalanceAction, RebalanceResponse
 from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
-from ...pricing.stub_provider import get_price
+from ...pricing.stub_provider import get_prices
 
 
 def compute_rebalance(db: Session, user_id: str, portfolio_id: uuid.UUID) -> RebalanceResponse:
@@ -18,8 +18,13 @@ def compute_rebalance(db: Session, user_id: str, portfolio_id: uuid.UUID) -> Reb
     # Calculate current values
     holdings_data = []
     total_value = Decimal("0")
+
+    # Fetch all prices in one batch
+    symbols = [h.symbol for h in p.holdings]
+    prices = get_prices(symbols) if symbols else {}
+
     for h in p.holdings:
-        price = get_price(h.symbol)
+        price = prices.get(h.symbol, Decimal("0"))
         value = price * Decimal(str(h.quantity))
         total_value += value
         holdings_data.append({
