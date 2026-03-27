@@ -71,6 +71,8 @@ async def import_holdings(
     imported = 0
     errors = []
 
+    valid_rows = []
+
     for row_num, row in enumerate(reader, start=2):  # start at 2 since row 1 is header
         try:
             symbol = row.get("symbol", "").strip().upper()
@@ -108,14 +110,22 @@ async def import_holdings(
                 except InvalidOperation:
                     pass
 
-            holding_service.add_or_update_holding(
-                db, user_id, portfolio_id, symbol, quantity, price, purchase_date, target_alloc
-            )
-            imported += 1
+            valid_rows.append({
+                "symbol": symbol,
+                "quantity": quantity,
+                "purchase_price": price,
+                "purchase_date": purchase_date,
+                "target_allocation": target_alloc,
+            })
 
         except (InvalidOperation, ValueError) as e:
             errors.append({"row": row_num, "reason": f"Invalid data: {str(e)}"})
         except Exception as e:
             errors.append({"row": row_num, "reason": str(e)})
+
+    if valid_rows:
+        imported = holding_service.add_or_update_holdings_bulk(
+            db, user_id, portfolio_id, valid_rows
+        )
 
     return ImportResult(imported=imported, errors=errors)
