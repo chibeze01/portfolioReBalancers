@@ -12,14 +12,16 @@ from ...pricing.stub_provider import get_price
 
 
 def portfolio_pnl(db: Session, user_id: str, portfolio_id: uuid.UUID) -> PnLResponse:
-    from ...pricing.yahoo_provider import get_price as yahoo_get_price
+    from ...pricing.stub_provider import get_prices_batch
 
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
     positions: list[PnLPosition] = []
     total = Decimal("0")
+    symbols = [h.symbol for h in p.holdings]
+    prices = get_prices_batch(symbols) if symbols else {}
     for h in p.holdings:
-        price = yahoo_get_price(h.symbol) or get_price(h.symbol)
+        price = prices.get(h.symbol.upper(), get_price(h.symbol))
         unreal = (price - Decimal(str(h.average_cost))) * Decimal(str(h.quantity))
         positions.append(
             PnLPosition(
@@ -41,7 +43,8 @@ def portfolio_pnl(db: Session, user_id: str, portfolio_id: uuid.UUID) -> PnLResp
 
 def portfolio_historical(db: Session, user_id: str, portfolio_id: uuid.UUID, days: int = 30) -> HistoricalPortfolioResponse:
     """Generate historical portfolio value using real price data from Yahoo Finance."""
-    from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price
+    from ...pricing.yahoo_provider import get_historical_prices
+    from ...pricing.stub_provider import get_prices_batch
 
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
@@ -62,9 +65,12 @@ def portfolio_historical(db: Session, user_id: str, portfolio_id: uuid.UUID, day
     holding_prices = {}
     current_value = Decimal("0")
 
+    symbols = [h.symbol for h in p.holdings]
+    prices = get_prices_batch(symbols) if symbols else {}
+
     for h in p.holdings:
         history = get_historical_prices(h.symbol, days + 5)  # extra days buffer
-        current_price = yahoo_get_price(h.symbol) or get_price(h.symbol)
+        current_price = prices.get(h.symbol.upper(), get_price(h.symbol))
         current_value += current_price * Decimal(str(h.quantity))
 
         if history:
