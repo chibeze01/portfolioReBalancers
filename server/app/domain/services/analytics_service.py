@@ -3,6 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal
+from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from ..models import PnLResponse, PnLPosition, HistoricalPortfolioResponse, HistoricalDataPoint
@@ -58,16 +59,25 @@ def portfolio_historical(db: Session, user_id: str, portfolio_id: uuid.UUID, day
             current_value=Decimal("0"),
         )
 
+
     # Fetch historical prices for each holding
     holding_prices = {}
     current_value = Decimal("0")
 
-    for h in p.holdings:
+    def fetch_holding_data(h):
         history = get_historical_prices(h.symbol, days + 5)  # extra days buffer
         current_price = yahoo_get_price(h.symbol) or get_price(h.symbol)
+        return h, history, current_price
+
+    # Use ThreadPoolExecutor to fetch data concurrently
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        results = list(executor.map(fetch_holding_data, p.holdings))
+
+    for h, history, current_price in results:
         current_value += current_price * Decimal(str(h.quantity))
 
         if history:
+
             # Build date->price map from real data
             price_map = {item["date"]: item["price"] for item in history}
             holding_prices[h.symbol] = {
