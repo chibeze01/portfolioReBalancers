@@ -12,14 +12,19 @@ from ...pricing.stub_provider import get_price
 
 
 def portfolio_pnl(db: Session, user_id: str, portfolio_id: uuid.UUID) -> PnLResponse:
-    from ...pricing.yahoo_provider import get_price as yahoo_get_price
+    from ...pricing.yahoo_provider import get_prices_batch
 
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
     positions: list[PnLPosition] = []
     total = Decimal("0")
+
+    # Fetch all prices in one batch to prevent N+1 queries
+    symbols = [h.symbol for h in p.holdings]
+    prices_batch = get_prices_batch(symbols) if symbols else {}
+
     for h in p.holdings:
-        price = yahoo_get_price(h.symbol) or get_price(h.symbol)
+        price = prices_batch.get(h.symbol.upper()) or get_price(h.symbol)
         unreal = (price - Decimal(str(h.average_cost))) * Decimal(str(h.quantity))
         positions.append(
             PnLPosition(

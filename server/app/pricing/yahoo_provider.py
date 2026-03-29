@@ -85,11 +85,64 @@ def get_stock_info(symbol: str) -> Optional[Dict]:
 
 def get_prices_batch(symbols: list[str]) -> Dict[str, Optional[Decimal]]:
     """
-    Fetch prices for multiple symbols efficiently.
+    Fetch prices for multiple symbols efficiently in a single batch request
+    to Yahoo Finance to avoid N+1 query performance issues.
     """
+    if not symbols:
+        return {}
+
+    now = datetime.now()
     result = {}
+    missing_symbols = []
+
+    # 1. Check cache first
     for symbol in symbols:
-        result[symbol.upper()] = get_price(symbol)
+        sym_upper = symbol.upper()
+        if sym_upper in _price_cache:
+            price, cached_at = _price_cache[sym_upper]
+            if now - cached_at < _CACHE_TTL:
+                result[sym_upper] = price
+                continue
+        missing_symbols.append(sym_upper)
+
+    # 2. Fetch missing symbols in batch
+    if missing_symbols:
+        try:
+            import yfinance as yf
+            import pandas as pd
+
+            # Use yf.download for batch fetching, which is significantly faster
+            # than creating Ticker objects one by one
+            data = yf.download(missing_symbols, period="1d", progress=False)
+
+            if not data.empty and "Close" in data:
+                close_data = data["Close"]
+                for sym in missing_symbols:
+                    # When only one symbol is requested, close_data is a Series (no symbol column)
+                    if len(missing_symbols) == 1:
+                        price_val = close_data.iloc[-1]
+                    elif sym in close_data:
+                        price_val = close_data[sym].iloc[-1]
+                    else:
+                        price_val = None
+
+                    if price_val is not None and not pd.isna(price_val):
+                        price = Decimal(str(round(price_val, 2)))
+                        result[sym] = price
+                        _price_cache[sym] = (price, now)
+                        logger.debug(f"Batch fetched price for {sym}: {price}")
+                    else:
+                        result[sym] = None
+            else:
+                # Fallback if download failed or returned unexpected format
+                for sym in missing_symbols:
+                    result[sym] = None
+
+        except Exception as e:
+            logger.warning(f"Failed to fetch batch prices for {missing_symbols}: {e}")
+            for sym in missing_symbols:
+                result[sym] = None
+
     return result
 
 

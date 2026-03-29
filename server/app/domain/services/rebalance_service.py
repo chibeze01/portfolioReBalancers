@@ -12,14 +12,21 @@ from ...pricing.stub_provider import get_price
 
 def compute_rebalance(db: Session, user_id: str, portfolio_id: uuid.UUID) -> RebalanceResponse:
     """Compute rebalance actions for a portfolio based on target allocations."""
+    from ...pricing.yahoo_provider import get_prices_batch
+
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
 
     # Calculate current values
     holdings_data = []
     total_value = Decimal("0")
+
+    # Fetch all prices in one batch to prevent N+1 queries
+    symbols = [h.symbol for h in p.holdings]
+    prices_batch = get_prices_batch(symbols) if symbols else {}
+
     for h in p.holdings:
-        price = get_price(h.symbol)
+        price = prices_batch.get(h.symbol.upper()) or get_price(h.symbol)
         value = price * Decimal(str(h.quantity))
         total_value += value
         holdings_data.append({

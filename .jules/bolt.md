@@ -1,0 +1,3 @@
+## 2025-03-27 - [yfinance N+1 Fetch Optimization]
+**Learning:** `yfinance`'s `yf.Ticker(symbol).info` is synchronously slow (~0.3s per symbol). Fetching a portfolio of 10 holdings in a loop creates a severe N+1 query problem, taking 3-4s. However, `yf.download([symbols], period="1d")` batch fetches all prices in a single optimized network request taking ~0.3s total. The pandas DataFrame structure returned depends on whether 1 or N symbols are fetched.
+**Action:** Always batch external API calls before looping over domain entities in service layers. Use `get_prices_batch` over `get_price`. Handle both `Series` and `DataFrame` responses when using `yfinance.download()`.

@@ -3,13 +3,15 @@ import pytest
 from fastapi.testclient import TestClient
 from app.main import app
 from app.dependencies import get_db, current_user_id, require_user
-from app.persistence.db import SessionLocal, init_db
-
+from app.persistence.db import SessionLocal, init_db, engine
+from app.persistence.tables import Base
 
 @pytest.fixture(scope="session", autouse=True)
 def setup_db():
+    Base.metadata.create_all(bind=engine)
     init_db()
     yield
+    Base.metadata.drop_all(bind=engine)
 
 
 TEST_USER = str(uuid.uuid4())
@@ -31,7 +33,6 @@ def client():
 
 @pytest.fixture()
 def portfolio_with_holdings(client):
-    """Create a portfolio with 3 sample holdings (AAPL, MSFT, GOOGL)."""
     r = client.post("/api/v1/portfolios", json={"name": "Test Holdings Portfolio"})
     assert r.status_code == 201, r.text
     pid = r.json()["id"]
@@ -50,7 +51,6 @@ def portfolio_with_holdings(client):
 
 @pytest.fixture()
 def portfolio_with_allocations(client):
-    """Create a portfolio with 3 sample holdings that have target_allocation set."""
     r = client.post("/api/v1/portfolios", json={"name": "Allocation Portfolio"})
     assert r.status_code == 201, r.text
     pid = r.json()["id"]
