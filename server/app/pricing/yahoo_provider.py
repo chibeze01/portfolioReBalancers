@@ -85,11 +85,70 @@ def get_stock_info(symbol: str) -> Optional[Dict]:
 
 def get_prices_batch(symbols: list[str]) -> Dict[str, Optional[Decimal]]:
     """
-    Fetch prices for multiple symbols efficiently.
+    Fetch prices for multiple symbols efficiently in a single batch request.
     """
-    result = {}
+    symbols = list(set([s.upper() for s in symbols]))
+    result = {s: None for s in symbols}
+
+    if not symbols:
+        return result
+
+    now = datetime.now()
+    symbols_to_fetch = []
+
+    # Check cache first
     for symbol in symbols:
-        result[symbol.upper()] = get_price(symbol)
+        if symbol in _price_cache:
+            price, cached_at = _price_cache[symbol]
+            if now - cached_at < _CACHE_TTL:
+                result[symbol] = price
+                continue
+        symbols_to_fetch.append(symbol)
+
+    if not symbols_to_fetch:
+        return result
+
+    try:
+        import yfinance as yf
+        # yf.download is much faster for multiple symbols than querying individual Tickers
+        data = yf.download(symbols_to_fetch, period="1d", progress=False)
+
+        if not data.empty and 'Close' in data.columns:
+            for symbol in symbols_to_fetch:
+                try:
+                    # Depending on yfinance version and single/multi symbol, structure varies
+                    close_data = data['Close']
+                    if hasattr(close_data, "columns"):
+                        # It is a DataFrame (multi-symbol or new yfinance format)
+                        if symbol in close_data.columns:
+                            val = close_data[symbol].iloc[-1]
+                        else:
+                            val = None
+                    elif hasattr(close_data, "iloc"):
+                        # It is a Series
+                        val = close_data.iloc[-1]
+                    else:
+                        val = None
+
+                    import pandas as pd
+                    if val is not None and not pd.isna(val):
+                        price = Decimal(str(round(float(val), 2)))
+                        result[symbol] = price
+                        _price_cache[symbol] = (price, now)
+                    else:
+                        result[symbol] = get_price(symbol)
+                except Exception as e:
+                    logger.debug(f"Could not extract price for {symbol} from batch: {e}")
+                    result[symbol] = get_price(symbol)
+        else:
+            for symbol in symbols_to_fetch:
+                result[symbol] = get_price(symbol)
+
+    except Exception as e:
+        logger.warning(f"Batch fetch failed: {e}. Falling back to individual fetches.")
+        for symbol in symbols_to_fetch:
+            result[symbol] = get_price(symbol)
+
     return result
 
 

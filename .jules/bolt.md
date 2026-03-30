@@ -1,0 +1,3 @@
+## 2024-05-24 - N+1 API Calls in Pricing Backend
+**Learning:** Looping over `yfinance.Ticker().info` for current prices creates severe N+1 bottlenecks. In this specific application, fetching prices individually sequentially causes latency to scale linearly ($O(n)$) with the number of holdings in a portfolio since yfinance makes separate web requests.
+**Action:** Use `yfinance.download` with a list of symbols in `get_prices_batch` to perform a single batch request, and call this once prior to iterating through holdings in services like `analytics_service` and `rebalance_service`. Be careful handling the return type of `yf.download` as it can be a Series (for 1 symbol) or a MultiIndex DataFrame (for >1 symbols).
