@@ -87,63 +87,24 @@ def get_stock_info(symbol: str) -> Optional[Dict]:
 
 def get_prices_batch(symbols: list[str]) -> Dict[str, Optional[Decimal]]:
     """
-    Fetch prices for multiple symbols efficiently.
+    Fetch prices for multiple symbols efficiently using a thread pool.
     """
-    if not symbols:
-        return {}
+    from concurrent.futures import ThreadPoolExecutor
 
-    now = datetime.now()
     result = {}
-    to_fetch = []
-
-    for symbol in symbols:
-        sym = symbol.upper()
-        if sym in _price_cache:
-            price, cached_at = _price_cache[sym]
-            if now - cached_at < _CACHE_TTL:
-                result[sym] = price
-                continue
-        to_fetch.append(sym)
-
-    if not to_fetch:
+    unique_symbols = list(set(symbols))
+    if not unique_symbols:
         return result
 
-    try:
-        import yfinance as yf
-        data = yf.download(" ".join(to_fetch), period="1d", progress=False)
-
-        if "Close" in data and not data["Close"].empty:
-            closes = data["Close"].iloc[-1]
-            if isinstance(closes, pd.Series):
-                for sym, val in closes.items():
-                    s = str(sym)
-                    if math.isnan(val):
-                        result[s] = get_price(s)
-                    else:
-                        price = Decimal(str(round(val, 2)))
-                        result[s] = price
-                        _price_cache[s] = (price, now)
-            else:
-                s = to_fetch[0]
-                if math.isnan(closes):
-                    result[s] = get_price(s)
-                else:
-                    price = Decimal(str(round(closes, 2)))
-                    result[s] = price
-                    _price_cache[s] = (price, now)
-        else:
-            for s in to_fetch:
-                result[s] = get_price(s)
-    except Exception as e:
-        logger.warning(f"Batch fetch failed: {e}. Falling back to individual fetches.")
-        for s in to_fetch:
-            result[s] = get_price(s)
-
-    # Ensure all requested symbols are in the result
-    for symbol in symbols:
-        sym = symbol.upper()
-        if sym not in result:
-            result[sym] = None
+    with ThreadPoolExecutor(max_workers=min(10, len(unique_symbols))) as executor:
+        future_to_sym = {executor.submit(get_price, sym): sym.upper() for sym in unique_symbols}
+        for future in future_to_sym:
+            sym = future_to_sym[future]
+            try:
+                result[sym] = future.result()
+            except Exception as e:
+                logger.warning(f"Failed to fetch batch price for {sym}: {e}")
+                result[sym] = None
 
     return result
 
