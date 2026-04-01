@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from ..models import RebalanceAction, RebalanceResponse
 from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
-from ...pricing.stub_provider import get_price
+from ...pricing.stub_provider import get_prices
 
 
 def compute_rebalance(db: Session, user_id: str, portfolio_id: uuid.UUID) -> RebalanceResponse:
@@ -15,11 +15,25 @@ def compute_rebalance(db: Session, user_id: str, portfolio_id: uuid.UUID) -> Reb
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
 
+    # Pre-fetch all prices in a single batch
+    symbols = [h.symbol for h in p.holdings]
+    if symbols:
+        from ...pricing.yahoo_provider import get_prices_batch as yahoo_get_prices_batch
+        batched_prices = yahoo_get_prices_batch(symbols)
+    else:
+        batched_prices = {}
+
     # Calculate current values
     holdings_data = []
     total_value = Decimal("0")
+
+    # Fetch all prices in one batch
+    symbols = [h.symbol for h in p.holdings]
+    prices = get_prices(symbols) if symbols else {}
+
     for h in p.holdings:
-        price = get_price(h.symbol)
+        # get_price acts as fallback here (stub_provider.get_price handles yahoo+stub fallback)
+        price = batched_prices.get(h.symbol) or get_price(h.symbol)
         value = price * Decimal(str(h.quantity))
         total_value += value
         holdings_data.append({
