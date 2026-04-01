@@ -46,6 +46,63 @@ def add_or_update_holding(
     return HoldingOut(id=h.id, symbol=h.symbol, quantity=h.quantity, average_cost=h.average_cost)
 
 
+
+def add_or_update_holdings_bulk(
+    db: Session,
+    user_id: str,
+    portfolio_id: uuid.UUID,
+    holdings_data: list[dict],
+) -> int:
+    portfolio = portfolio_repo.get_portfolio(db, portfolio_id)
+    ensure_owner(portfolio, user_id)
+
+    # Pre-fetch all existing holdings for the portfolio
+    existing_holdings = db.query(holding_repo.tables.Holding).filter(
+        holding_repo.tables.Holding.portfolio_id == portfolio_id
+    ).all()
+
+    existing_by_symbol = {h.symbol: h for h in existing_holdings}
+    new_holdings = []
+
+    for row in holdings_data:
+        symbol = row["symbol"].upper()
+        quantity = row["quantity"]
+        purchase_price = row["purchase_price"]
+        purchase_date = row.get("purchase_date")
+        target_allocation = row.get("target_allocation")
+
+        if quantity <= 0 or purchase_price <= 0:
+            continue
+
+        if symbol in existing_by_symbol:
+            existing = existing_by_symbol[symbol]
+            old_qty = Decimal(existing.quantity)
+            new_qty = old_qty + quantity
+            new_avg = (old_qty * Decimal(existing.average_cost) + quantity * purchase_price) / new_qty
+            existing.quantity = new_qty
+            existing.average_cost = new_avg
+            if existing.first_purchase_date is None:
+                existing.first_purchase_date = purchase_date
+            if target_allocation is not None:
+                existing.target_allocation = target_allocation
+        else:
+            new_h = holding_repo.tables.Holding(
+                portfolio_id=portfolio_id,
+                symbol=symbol,
+                quantity=quantity,
+                average_cost=purchase_price,
+                first_purchase_date=purchase_date,
+                target_allocation=target_allocation,
+            )
+            existing_by_symbol[symbol] = new_h
+            new_holdings.append(new_h)
+
+    if new_holdings:
+        db.add_all(new_holdings)
+
+    db.flush()
+    return len(holdings_data)
+
 def delete_holding(db: Session, user_id: str, holding_id: uuid.UUID) -> None:
     h = holding_repo.get_by_id(db, holding_id)
     if not h:
@@ -60,10 +117,10 @@ def get_holding_detail(db: Session, user_id: str, holding_id: uuid.UUID) -> Hold
     holding = holding_repo.get_by_id(db, holding_id)
     if not holding:
         raise HTTPException(status_code=404, detail="Holding not found")
-    
+
     portfolio = portfolio_repo.get_portfolio(db, holding.portfolio_id)
     ensure_owner(portfolio, user_id)
-    
+
     # Get current price
     current_price = get_price(holding.symbol)
     quantity = Decimal(holding.quantity)
@@ -72,7 +129,7 @@ def get_holding_detail(db: Session, user_id: str, holding_id: uuid.UUID) -> Hold
     cost_basis = average_cost * quantity
     unrealized_pnl = total_value - cost_basis
     pnl_percent = (unrealized_pnl / cost_basis * 100) if cost_basis > 0 else Decimal("0")
-    
+
     # Get stock metadata
     stock_info = get_stock_info(holding.symbol)
     metadata = StockMetadata(
@@ -84,7 +141,7 @@ def get_holding_detail(db: Session, user_id: str, holding_id: uuid.UUID) -> Hold
         pe_ratio=Decimal(str(stock_info.get('peRatio'))) if stock_info and stock_info.get('peRatio') else None,
         dividend_yield=Decimal(str(stock_info.get('dividendYield'))) if stock_info and stock_info.get('dividendYield') else None,
     )
-    
+
     # Generate price history (30 days)
     price_history = _generate_price_history(
         holding.symbol,
@@ -93,7 +150,7 @@ def get_holding_detail(db: Session, user_id: str, holding_id: uuid.UUID) -> Hold
         current_price,
         days=30
     )
-    
+
     return HoldingDetailResponse(
         holding_id=holding.id,
         symbol=holding.symbol,
@@ -113,22 +170,22 @@ def _generate_price_history(symbol: str, purchase_date, purchase_price: Decimal,
     """Generate simulated price history for a stock."""
     # Use deterministic seed based on symbol
     random.seed(hash(symbol) % (2**32))
-    
+
     end_date = datetime.now(timezone.utc).date()
     start_date = end_date - timedelta(days=days)
-    
+
     # If purchased recently, start from purchase date
     if purchase_date and purchase_date > start_date:
         start_date = purchase_date
-    
+
     # Calculate days to generate
     total_days = (end_date - start_date).days + 1
-    
+
     # Generate price path from start to current
     prices = []
     for i in range(total_days):
         current_date = start_date + timedelta(days=i)
-        
+
         if i == 0:
             # First day - use purchase price if recently purchased, otherwise calculate
             if purchase_date and current_date == purchase_date:
@@ -150,10 +207,10 @@ def _generate_price_history(symbol: str, purchase_date, purchase_price: Decimal,
             # Clamp to reasonable bounds
             price = max(price, current_price * Decimal("0.85"))
             price = min(price, current_price * Decimal("1.15"))
-        
+
         prices.append(StockPricePoint(
             date=current_date.strftime("%Y-%m-%d"),
             price=price,
         ))
-    
+
     return prices
