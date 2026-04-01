@@ -15,6 +15,14 @@ def compute_rebalance(db: Session, user_id: str, portfolio_id: uuid.UUID) -> Reb
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
 
+    # Pre-fetch all prices in a single batch
+    symbols = [h.symbol for h in p.holdings]
+    if symbols:
+        from ...pricing.yahoo_provider import get_prices_batch as yahoo_get_prices_batch
+        batched_prices = yahoo_get_prices_batch(symbols)
+    else:
+        batched_prices = {}
+
     # Calculate current values
     holdings_data = []
     total_value = Decimal("0")
@@ -24,7 +32,8 @@ def compute_rebalance(db: Session, user_id: str, portfolio_id: uuid.UUID) -> Reb
     prices = get_prices(symbols) if symbols else {}
 
     for h in p.holdings:
-        price = prices.get(h.symbol, Decimal("0"))
+        # get_price acts as fallback here (stub_provider.get_price handles yahoo+stub fallback)
+        price = batched_prices.get(h.symbol) or get_price(h.symbol)
         value = price * Decimal(str(h.quantity))
         total_value += value
         holdings_data.append({
