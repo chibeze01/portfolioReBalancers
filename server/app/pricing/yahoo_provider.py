@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
+import math
+import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional, Dict
 
@@ -20,40 +22,40 @@ _HISTORICAL_CACHE_TTL = timedelta(minutes=30)
 def get_price(symbol: str) -> Optional[Decimal]:
     """
     Fetch current price for a stock symbol from Yahoo Finance.
-    
+
     Returns None if unable to fetch (caller should fallback to stub).
     Results are cached for 5 minutes.
     """
     symbol = symbol.upper()
     now = datetime.now()
-    
+
     # Check cache
     if symbol in _price_cache:
         price, cached_at = _price_cache[symbol]
         if now - cached_at < _CACHE_TTL:
             return price
-    
+
     try:
         import yfinance as yf
         ticker = yf.Ticker(symbol)
         info = ticker.info
-        
+
         # Try different price fields
         price_value = (
             info.get('regularMarketPrice') or
             info.get('currentPrice') or
             info.get('previousClose')
         )
-        
+
         if price_value is None:
             logger.warning(f"No price data found for {symbol}")
             return None
-        
+
         price = Decimal(str(price_value))
         _price_cache[symbol] = (price, now)
         logger.debug(f"Fetched price for {symbol}: {price}")
         return price
-        
+
     except Exception as e:
         logger.warning(f"Failed to fetch price for {symbol}: {e}")
         return None
@@ -67,7 +69,7 @@ def get_stock_info(symbol: str) -> Optional[Dict]:
         import yfinance as yf
         ticker = yf.Ticker(symbol)
         info = ticker.info
-        
+
         return {
             'symbol': symbol.upper(),
             'name': info.get('shortName') or info.get('longName') or symbol,
@@ -87,9 +89,62 @@ def get_prices_batch(symbols: list[str]) -> Dict[str, Optional[Decimal]]:
     """
     Fetch prices for multiple symbols efficiently.
     """
+    if not symbols:
+        return {}
+
+    now = datetime.now()
     result = {}
+    to_fetch = []
+
     for symbol in symbols:
-        result[symbol.upper()] = get_price(symbol)
+        sym = symbol.upper()
+        if sym in _price_cache:
+            price, cached_at = _price_cache[sym]
+            if now - cached_at < _CACHE_TTL:
+                result[sym] = price
+                continue
+        to_fetch.append(sym)
+
+    if not to_fetch:
+        return result
+
+    try:
+        import yfinance as yf
+        data = yf.download(" ".join(to_fetch), period="1d", progress=False)
+
+        if "Close" in data and not data["Close"].empty:
+            closes = data["Close"].iloc[-1]
+            if isinstance(closes, pd.Series):
+                for sym, val in closes.items():
+                    s = str(sym)
+                    if math.isnan(val):
+                        result[s] = get_price(s)
+                    else:
+                        price = Decimal(str(round(val, 2)))
+                        result[s] = price
+                        _price_cache[s] = (price, now)
+            else:
+                s = to_fetch[0]
+                if math.isnan(closes):
+                    result[s] = get_price(s)
+                else:
+                    price = Decimal(str(round(closes, 2)))
+                    result[s] = price
+                    _price_cache[s] = (price, now)
+        else:
+            for s in to_fetch:
+                result[s] = get_price(s)
+    except Exception as e:
+        logger.warning(f"Batch fetch failed: {e}. Falling back to individual fetches.")
+        for s in to_fetch:
+            result[s] = get_price(s)
+
+    # Ensure all requested symbols are in the result
+    for symbol in symbols:
+        sym = symbol.upper()
+        if sym not in result:
+            result[sym] = None
+
     return result
 
 
