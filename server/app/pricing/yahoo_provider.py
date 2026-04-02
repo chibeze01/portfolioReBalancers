@@ -87,24 +87,61 @@ def get_stock_info(symbol: str) -> Optional[Dict]:
 
 def get_prices_batch(symbols: list[str]) -> Dict[str, Optional[Decimal]]:
     """
-    Fetch prices for multiple symbols efficiently using a thread pool.
+    Fetch prices for multiple symbols efficiently using a single yfinance.download call.
     """
-    from concurrent.futures import ThreadPoolExecutor
+    import yfinance as yf
 
     result = {}
-    unique_symbols = list(set(symbols))
+    unique_symbols = list(set([s.upper() for s in symbols]))
     if not unique_symbols:
         return result
 
-    with ThreadPoolExecutor(max_workers=min(10, len(unique_symbols))) as executor:
-        future_to_sym = {executor.submit(get_price, sym): sym.upper() for sym in unique_symbols}
-        for future in future_to_sym:
-            sym = future_to_sym[future]
-            try:
-                result[sym] = future.result()
-            except Exception as e:
-                logger.warning(f"Failed to fetch batch price for {sym}: {e}")
+    now = datetime.now()
+    symbols_to_fetch = []
+
+    # Check cache first
+    for sym in unique_symbols:
+        if sym in _price_cache and now - _price_cache[sym][1] < _CACHE_TTL:
+            result[sym] = _price_cache[sym][0]
+        else:
+            symbols_to_fetch.append(sym)
+
+    if not symbols_to_fetch:
+        return result
+
+    try:
+        data = yf.download(symbols_to_fetch, period='1d', progress=False)
+
+        if hasattr(data, 'columns') and 'Close' in data.columns:
+            close_data = data['Close']
+            for sym in symbols_to_fetch:
+                try:
+                    price_val = float('nan')
+                    if isinstance(close_data, pd.Series):
+                        if len(close_data) > 0:
+                            price_val = close_data.iloc[-1]
+                    elif isinstance(close_data, pd.DataFrame) and sym in close_data.columns:
+                        if len(close_data[sym]) > 0:
+                            price_val = close_data[sym].iloc[-1]
+
+                    if pd.isna(price_val):
+                        result[sym] = None
+                    else:
+                        price_decimal = Decimal(str(round(float(price_val), 2)))
+                        result[sym] = price_decimal
+                        _price_cache[sym] = (price_decimal, now)
+                except Exception as e:
+                    logger.warning(f"Failed to extract price for {sym} from batch: {e}")
+                    result[sym] = None
+        else:
+            # If no Close column or unexpected format, mark all as None
+            for sym in symbols_to_fetch:
                 result[sym] = None
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch batch prices: {e}")
+        for sym in symbols_to_fetch:
+            result[sym] = None
 
     return result
 
