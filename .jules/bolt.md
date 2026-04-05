@@ -1,3 +1,7 @@
 ## 2024-03-28 - [Backend Yahoo Finance Bulk Download]
 **Learning:** The application was experiencing an N+1 problem in `analytics_service` and `rebalance_service` because `get_price(h.symbol)` was called in a loop for each holding in a portfolio, triggering individual HTTP requests to Yahoo Finance for every ticker. This was not ideal and caused serious performance bottlenecks when calculating portfolio summaries.
 **Action:** Implemented `get_prices_batch` in `server/app/pricing/yahoo_provider.py` using `yfinance.download(symbols_string, period="1d")` to batch requests. Replaced individual fetches in domain services with upfront bulk fetches. When optimizing similar pricing operations, always check if bulk retrieval capabilities exist for the upstream API/provider.
+
+## 2024-04-05 - [Backend Recommendation Service N+1 Info Fetch]
+**Learning:** Found another N+1 performance bottleneck in `recommendation_service._analyze_portfolio_sectors` where `get_stock_info` was being called synchronously in a loop for every holding to fetch sector data. This was blocking the main thread significantly on large portfolios.
+**Action:** Implemented `get_stock_info_batch` using `ThreadPoolExecutor` (mirroring the `get_prices_batch` pattern) to fetch stock info for multiple tickers concurrently. Refactored `_analyze_portfolio_sectors` to pre-fetch all needed info before the calculation loop. This pattern of bulk fetching should be applied to any external API calls made within a loop over user holdings.
