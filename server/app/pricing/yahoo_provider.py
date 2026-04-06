@@ -7,6 +7,7 @@ import math
 import pandas as pd
 from datetime import datetime, timedelta
 from typing import Optional, Dict
+from concurrent.futures import ThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
 
@@ -85,12 +86,32 @@ def get_stock_info(symbol: str) -> Optional[Dict]:
         return None
 
 
+def get_stock_info_batch(symbols: list[str]) -> Dict[str, Optional[Dict]]:
+    """
+    Fetch extended stock information for multiple symbols efficiently using a thread pool.
+    """
+    result = {}
+    unique_symbols = list(set(symbols))
+    if not unique_symbols:
+        return result
+
+    with ThreadPoolExecutor(max_workers=min(10, len(unique_symbols))) as executor:
+        future_to_sym = {executor.submit(get_stock_info, sym): sym.upper() for sym in unique_symbols}
+        for future in future_to_sym:
+            sym = future_to_sym[future]
+            try:
+                result[sym] = future.result()
+            except Exception as e:
+                logger.warning(f"Failed to fetch batch info for {sym}: {e}")
+                result[sym] = None
+
+    return result
+
+
 def get_prices_batch(symbols: list[str]) -> Dict[str, Optional[Decimal]]:
     """
     Fetch prices for multiple symbols efficiently using a thread pool.
     """
-    from concurrent.futures import ThreadPoolExecutor
-
     result = {}
     unique_symbols = list(set(symbols))
     if not unique_symbols:
