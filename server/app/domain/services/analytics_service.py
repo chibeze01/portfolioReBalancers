@@ -46,7 +46,7 @@ def portfolio_pnl(db: Session, user_id: str, portfolio_id: uuid.UUID) -> PnLResp
 
 def portfolio_historical(db: Session, user_id: str, portfolio_id: uuid.UUID, days: int = 30) -> HistoricalPortfolioResponse:
     """Generate historical portfolio value using real price data from Yahoo Finance."""
-    from ...pricing.yahoo_provider import get_historical_prices, get_prices_batch as yahoo_get_prices_batch
+    from ...pricing.yahoo_provider import get_historical_prices_batch, get_prices_batch as yahoo_get_prices_batch
 
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
@@ -67,12 +67,15 @@ def portfolio_historical(db: Session, user_id: str, portfolio_id: uuid.UUID, day
     symbols = [h.symbol for h in p.holdings]
     batched_prices = yahoo_get_prices_batch(symbols)
 
+    # Pre-fetch historical prices in batch
+    batched_historical_prices = get_historical_prices_batch(symbols, days + 5)
+
     # Fetch historical prices for each holding
     holding_prices = {}
     current_value = Decimal("0")
 
     for h in p.holdings:
-        history = get_historical_prices(h.symbol, days + 5)  # extra days buffer
+        history = batched_historical_prices.get(h.symbol.upper())  # extra days buffer
         current_price = batched_prices.get(h.symbol) or get_price(h.symbol)
         current_value += current_price * Decimal(str(h.quantity))
 

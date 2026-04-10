@@ -40,8 +40,11 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
 
     # Fetch historical prices (365 days ≈ 252 trading days for stable estimates)
     returns_matrix = []
+    from ...pricing.yahoo_provider import get_historical_prices_batch
+    batched_history = get_historical_prices_batch(symbols, 365)
+
     for symbol in symbols:
-        history = get_historical_prices(symbol, 365)
+        history = batched_history.get(symbol.upper())
         if not history or len(history) < 60:
             raise HTTPException(
                 status_code=400,
