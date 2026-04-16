@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 
 from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
-from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price
+from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price, get_prices_batch, get_historical_prices_batch
 from ...pricing.stub_provider import get_price as stub_get_price
 
 
@@ -38,10 +38,14 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     quantities = {h.symbol: float(h.quantity) for h in p.holdings}
     n = len(symbols)
 
+    # Pre-fetch historical and current prices in batch
+    batched_historical = get_historical_prices_batch(symbols, 365)
+    batched_prices = get_prices_batch(symbols)
+
     # Fetch historical prices (365 days ≈ 252 trading days for stable estimates)
     returns_matrix = []
     for symbol in symbols:
-        history = get_historical_prices(symbol, 365)
+        history = batched_historical.get(symbol.upper())
         if not history or len(history) < 60:
             raise HTTPException(
                 status_code=400,
@@ -72,7 +76,10 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     current_values = {}
     total_value = 0.0
     for symbol in symbols:
-        price = float(_get_price(symbol))
+        price_val = batched_prices.get(symbol.upper())
+        if price_val is None:
+             price_val = stub_get_price(symbol)
+        price = float(price_val)
         val = price * quantities[symbol]
         current_values[symbol] = val
         total_value += val
