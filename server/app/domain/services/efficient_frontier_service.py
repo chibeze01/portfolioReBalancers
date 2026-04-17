@@ -11,7 +11,7 @@ from scipy.optimize import minimize
 from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
 from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price
-from ...pricing.stub_provider import get_price as stub_get_price
+from ...pricing.stub_provider import get_price as stub_get_price, get_prices as stub_get_prices
 
 
 def _get_price(symbol: str) -> Decimal:
@@ -68,11 +68,15 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     expected_returns = (1 + mean_daily) ** trading_days - 1
     cov_matrix = cov_daily * trading_days
 
+    # Batch fetch prices to avoid N+1
+    batched_prices = stub_get_prices(symbols) if symbols else {}
+
     # Current portfolio weights
     current_values = {}
     total_value = 0.0
     for symbol in symbols:
-        price = float(_get_price(symbol))
+        # Fallback to _get_price as a failsafe, although batched_prices should contain it
+        price = float(batched_prices.get(symbol) or _get_price(symbol))
         val = price * quantities[symbol]
         current_values[symbol] = val
         total_value += val
