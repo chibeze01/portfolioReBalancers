@@ -71,8 +71,13 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     # Current portfolio weights
     current_values = {}
     total_value = 0.0
+
+    # Pre-fetch current prices in a single batch to avoid N+1 problem.
+    from ...pricing.yahoo_provider import get_prices_batch as yahoo_get_prices_batch
+    batched_prices = yahoo_get_prices_batch(symbols) if symbols else {}
+
     for symbol in symbols:
-        price = float(_get_price(symbol))
+        price = float(batched_prices.get(symbol.upper()) or _get_price(symbol))
         val = price * quantities[symbol]
         current_values[symbol] = val
         total_value += val
