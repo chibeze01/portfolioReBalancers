@@ -68,11 +68,21 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     expected_returns = (1 + mean_daily) ** trading_days - 1
     cov_matrix = cov_daily * trading_days
 
+    from ...pricing.yahoo_provider import get_prices_batch as yahoo_get_prices_batch
+
+    # Pre-fetch current prices in batch to prevent N+1 sequential lookups bottleneck
+    batched_prices = yahoo_get_prices_batch(symbols) if symbols else {}
+
     # Current portfolio weights
     current_values = {}
     total_value = 0.0
     for symbol in symbols:
-        price = float(_get_price(symbol))
+        # Use batched prices first, then fallback to _get_price to preserve existing fallback chain
+        price_val = batched_prices.get(symbol.upper())
+        if price_val is None:
+            price_val = _get_price(symbol)
+
+        price = float(price_val)
         val = price * quantities[symbol]
         current_values[symbol] = val
         total_value += val
