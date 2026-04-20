@@ -10,12 +10,21 @@ from scipy.optimize import minimize
 
 from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
-from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price
-from ...pricing.stub_provider import get_price as stub_get_price
+from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price, get_prices_batch as yahoo_get_prices_batch
+from ...pricing.stub_provider import get_price as stub_get_price, get_prices as stub_get_prices
 
 
 def _get_price(symbol: str) -> Decimal:
     return yahoo_get_price(symbol) or stub_get_price(symbol)
+
+def _get_prices_batch(symbols: list[str]) -> dict[str, Decimal]:
+    batched = yahoo_get_prices_batch(symbols)
+    # Fill missing ones with stub
+    for symbol in symbols:
+        sym_upper = symbol.upper()
+        if batched.get(sym_upper) is None:
+            batched[sym_upper] = stub_get_price(symbol)
+    return batched
 
 
 def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
@@ -68,11 +77,15 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     expected_returns = (1 + mean_daily) ** trading_days - 1
     cov_matrix = cov_daily * trading_days
 
+    # ⚡ Bolt: Bulk fetch prices to prevent N+1 bottleneck when calculating portfolio values
+    # We use a custom local helper _get_prices_batch to preserve stub fallback behavior.
+    batched_prices = _get_prices_batch(symbols)
+
     # Current portfolio weights
     current_values = {}
     total_value = 0.0
     for symbol in symbols:
-        price = float(_get_price(symbol))
+        price = float(batched_prices.get(symbol.upper()) or _get_price(symbol))
         val = price * quantities[symbol]
         current_values[symbol] = val
         total_value += val
