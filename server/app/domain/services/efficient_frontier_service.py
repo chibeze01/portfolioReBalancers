@@ -12,10 +12,24 @@ from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
 from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price
 from ...pricing.stub_provider import get_price as stub_get_price
+from ...pricing.yahoo_provider import get_prices_batch as yahoo_get_prices_batch
 
 
 def _get_price(symbol: str) -> Decimal:
     return yahoo_get_price(symbol) or stub_get_price(symbol)
+
+def _get_prices_batch(symbols: list[str]) -> dict[str, Decimal]:
+    yahoo_prices = yahoo_get_prices_batch(symbols)
+
+    results = {}
+    for sym in symbols:
+        sym_upper = sym.upper()
+        # Short-circuit: Fallback mirroring local _get_price logic without fetching all stub prices upfront
+        price = yahoo_prices.get(sym_upper)
+        if price is None:
+            price = stub_get_price(sym)
+        results[sym] = price
+    return results
 
 
 def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
@@ -71,8 +85,12 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     # Current portfolio weights
     current_values = {}
     total_value = 0.0
+
+    # Optimization: Use batch pricing to prevent N+1 network lookups
+    batched_prices = _get_prices_batch(symbols)
+
     for symbol in symbols:
-        price = float(_get_price(symbol))
+        price = float(batched_prices[symbol])
         val = price * quantities[symbol]
         current_values[symbol] = val
         total_value += val
