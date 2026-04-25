@@ -10,12 +10,24 @@ from scipy.optimize import minimize
 
 from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
-from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price
+from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price, get_prices_batch as yahoo_get_prices_batch
 from ...pricing.stub_provider import get_price as stub_get_price
 
 
 def _get_price(symbol: str) -> Decimal:
     return yahoo_get_price(symbol) or stub_get_price(symbol)
+
+
+def _get_prices_batch(symbols: list[str]) -> dict[str, Decimal]:
+    # ⚡ Bolt Optimization: Batch fetch prices to prevent N+1 queries when loading portfolio data
+    batched = yahoo_get_prices_batch(symbols) if symbols else {}
+    results = {}
+    for sym in symbols:
+        price = batched.get(sym.upper())
+        if price is None:
+            price = stub_get_price(sym)
+        results[sym] = price
+    return results
 
 
 def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
@@ -71,8 +83,12 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     # Current portfolio weights
     current_values = {}
     total_value = 0.0
+
+    # ⚡ Bolt Optimization: Use batched prices to calculate portfolio value
+    batched_prices = _get_prices_batch(symbols)
+
     for symbol in symbols:
-        price = float(_get_price(symbol))
+        price = float(batched_prices[symbol])
         val = price * quantities[symbol]
         current_values[symbol] = val
         total_value += val
