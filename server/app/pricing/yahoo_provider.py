@@ -151,6 +151,30 @@ def get_historical_prices(symbol: str, days: int = 30) -> Optional[list[dict]]:
         return None
 
 
+def get_historical_prices_batch(symbols: list[str], days: int = 30) -> Dict[str, Optional[list[dict]]]:
+    """
+    Fetch historical prices for multiple symbols efficiently using a thread pool.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    result = {}
+    unique_symbols = list(set(symbols))
+    if not unique_symbols:
+        return result
+
+    with ThreadPoolExecutor(max_workers=min(10, len(unique_symbols))) as executor:
+        future_to_sym = {executor.submit(get_historical_prices, sym, days): sym.upper() for sym in unique_symbols}
+        for future in future_to_sym:
+            sym = future_to_sym[future]
+            try:
+                result[sym] = future.result()
+            except Exception as e:
+                logger.warning(f"Failed to fetch batch historical prices for {sym}: {e}")
+                result[sym] = None
+
+    return result
+
+
 def clear_cache():
     """Clear the price and historical caches."""
     global _price_cache, _historical_cache
