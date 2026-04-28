@@ -10,12 +10,24 @@ from scipy.optimize import minimize
 
 from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
-from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price
+from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price, get_prices_batch as yahoo_get_prices_batch, get_historical_prices_batch
 from ...pricing.stub_provider import get_price as stub_get_price
 
 
 def _get_price(symbol: str) -> Decimal:
     return yahoo_get_price(symbol) or stub_get_price(symbol)
+
+
+def _get_prices_batch(symbols: list[str]) -> dict[str, Decimal]:
+    batch_prices = yahoo_get_prices_batch(symbols)
+    results = {}
+    for sym in symbols:
+        price = batch_prices.get(sym.upper())
+        if price is not None:
+            results[sym] = price
+        else:
+            results[sym] = stub_get_price(sym)
+    return results
 
 
 def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
@@ -40,8 +52,9 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
 
     # Fetch historical prices (365 days ≈ 252 trading days for stable estimates)
     returns_matrix = []
+    histories_dict = get_historical_prices_batch(symbols, 365)
     for symbol in symbols:
-        history = get_historical_prices(symbol, 365)
+        history = histories_dict.get(symbol.upper())
         if not history or len(history) < 60:
             raise HTTPException(
                 status_code=400,
@@ -71,8 +84,9 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
     # Current portfolio weights
     current_values = {}
     total_value = 0.0
+    prices_dict = _get_prices_batch(symbols)
     for symbol in symbols:
-        price = float(_get_price(symbol))
+        price = float(prices_dict[symbol])
         val = price * quantities[symbol]
         current_values[symbol] = val
         total_value += val
