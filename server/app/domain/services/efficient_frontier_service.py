@@ -10,7 +10,7 @@ from scipy.optimize import minimize
 
 from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
-from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price
+from ...pricing.yahoo_provider import get_historical_prices, get_price as yahoo_get_price, get_historical_prices_batch
 from ...pricing.stub_provider import get_price as stub_get_price
 
 
@@ -40,8 +40,12 @@ def _load_portfolio_data(db: Session, user_id: str, portfolio_id: uuid.UUID):
 
     # Fetch historical prices (365 days ≈ 252 trading days for stable estimates)
     returns_matrix = []
+
+    # ⚡ Bolt: Fix N+1 problem by batching historical price fetches
+    historical_prices = get_historical_prices_batch(symbols, 365)
+
     for symbol in symbols:
-        history = get_historical_prices(symbol, 365)
+        history = historical_prices.get(symbol.upper())
         if not history or len(history) < 60:
             raise HTTPException(
                 status_code=400,
