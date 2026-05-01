@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from ..repositories import portfolio_repo
 from .portfolio_service import ensure_owner
-from ...pricing.yahoo_provider import get_stock_info
+from ...pricing.yahoo_provider import get_stock_info, get_stock_info_batch
 
 logger = logging.getLogger(__name__)
 
@@ -99,10 +99,13 @@ def _analyze_portfolio_sectors(holdings: list) -> Dict[str, Decimal]:
     """Analyze the sector breakdown of current holdings."""
     sector_values: Dict[str, Decimal] = {}
     total_value = Decimal('0')
-    
+
+    symbols = [h.symbol for h in holdings]
+    batched_info = get_stock_info_batch(symbols) if symbols else {}
+
     for holding in holdings:
         try:
-            info = get_stock_info(holding.symbol)
+            info = batched_info.get(holding.symbol.upper()) or get_stock_info(holding.symbol)
             if info and info.get('price'):
                 value = Decimal(str(info['price'])) * Decimal(str(holding.quantity))
                 sector = info.get('sector') or 'Unknown'
@@ -110,7 +113,7 @@ def _analyze_portfolio_sectors(holdings: list) -> Dict[str, Decimal]:
                 total_value += value
         except Exception as e:
             logger.warning(f"Could not get sector info for {holding.symbol}: {e}")
-    
+
     # Convert to percentages
     if total_value > 0:
         return {k: v / total_value for k, v in sector_values.items()}
@@ -120,25 +123,25 @@ def _analyze_portfolio_sectors(holdings: list) -> Dict[str, Decimal]:
 def _find_underweight_sectors(current_allocation: Dict[str, Decimal]) -> List[str]:
     """Find sectors that are underweight compared to target."""
     underweight = []
-    
+
     for sector, target_pct in TARGET_SECTORS.items():
         current_pct = float(current_allocation.get(sector, 0))
         # Consider underweight if more than 5% below target
         if current_pct < target_pct - 0.05:
             underweight.append(sector)
-    
+
     return underweight
 
 
 def generate_recommendations(
-    db: Session, 
-    user_id: str, 
+    db: Session,
+    user_id: str,
     portfolio_id,
     max_recommendations: int = 3
 ) -> List[Dict]:
     """
     Generate stock recommendations based on portfolio analysis.
-    
+
     Simple algorithm:
     1. Get current holdings and their sectors
     2. Find underrepresented sectors
@@ -148,13 +151,13 @@ def generate_recommendations(
     import uuid
     if isinstance(portfolio_id, str):
         portfolio_id = uuid.UUID(portfolio_id)
-    
+
     p = portfolio_repo.get_portfolio(db, portfolio_id)
     ensure_owner(p, user_id)
-    
+
     current_tickers = {h.symbol.upper() for h in p.holdings}
     recommendations = []
-    
+
     if not p.holdings:
         # Empty portfolio - suggest general diversification
         for rec in GENERAL_RECOMMENDATIONS:
@@ -167,11 +170,11 @@ def generate_recommendations(
                 if len(recommendations) >= max_recommendations:
                     break
         return recommendations
-    
+
     # Analyze current portfolio
     sector_allocation = _analyze_portfolio_sectors(p.holdings)
     underweight_sectors = _find_underweight_sectors(sector_allocation)
-    
+
     # Get recommendations from underweight sectors
     for sector in underweight_sectors:
         if sector in SECTOR_RECOMMENDATIONS:
@@ -186,10 +189,10 @@ def generate_recommendations(
                     })
                     current_tickers.add(stock['ticker'].upper())
                     break  # One recommendation per sector
-        
+
         if len(recommendations) >= max_recommendations:
             break
-    
+
     # Fill remaining slots with general recommendations
     if len(recommendations) < max_recommendations:
         for rec in GENERAL_RECOMMENDATIONS:
@@ -201,7 +204,7 @@ def generate_recommendations(
                 })
                 if len(recommendations) >= max_recommendations:
                     break
-    
+
     return recommendations
 
 
@@ -212,14 +215,14 @@ def get_quick_recommendations(current_tickers: List[str], max_recommendations: i
     """
     current_set = {t.upper() for t in current_tickers}
     recommendations = []
-    
+
     # Start with general recommendations
     for rec in GENERAL_RECOMMENDATIONS:
         if rec['ticker'].upper() not in current_set:
             recommendations.append(rec)
             if len(recommendations) >= max_recommendations:
                 break
-    
+
     # Add some popular individual stocks
     popular_stocks = [
         {'ticker': 'AAPL', 'name': 'Apple Inc.', 'reason': 'Strong fundamentals and consistent growth.'},
@@ -228,11 +231,11 @@ def get_quick_recommendations(current_tickers: List[str], max_recommendations: i
         {'ticker': 'MSFT', 'name': 'Microsoft Corporation', 'reason': 'Cloud growth and enterprise software leader.'},
         {'ticker': 'JPM', 'name': 'JPMorgan Chase & Co.', 'reason': 'Strong financial sector exposure.'},
     ]
-    
+
     for stock in popular_stocks:
         if len(recommendations) >= max_recommendations:
             break
         if stock['ticker'].upper() not in current_set:
             recommendations.append(stock)
-    
+
     return recommendations[:max_recommendations]
